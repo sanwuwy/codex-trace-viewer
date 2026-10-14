@@ -6,7 +6,8 @@
 
 ## 1. 取得完整源码
 
-- 已有本仓库链接：使用该链接 clone，或通过 GitHub 的 Code → Download ZIP 下载并解压。
+- 本仓库：`https://github.com/sanwuwy/codex-trace-viewer`。使用 `git clone https://github.com/sanwuwy/codex-trace-viewer.git`，或通过 Code → Download ZIP 下载并解压。
+- 0.11.0 发布包：`https://github.com/sanwuwy/codex-trace-viewer/releases/tag/v0.11.0`。推荐完整源码包；插件 ZIP 用于已有本地 marketplace，不直接运行源码安装器。
 - 已有源码 ZIP：解压到用户选择的持久目录。
 - 已有本地目录：核对其中存在 `README.md`、`LICENSE`、`scripts/install_plugin.py`、`plugins/codex-trace-probe/.codex-plugin/plugin.json` 和 `.agents/plugins/marketplace.json`。
 - 不知道仓库链接、版本或目录时：要求提供缺失信息；禁止编造 GitHub 地址或执行远程管道脚本。

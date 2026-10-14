@@ -20,7 +20,16 @@
 
 要求：macOS、Python 3.9+、支持 `plugin` 命令及会话插件入口的 Codex 桌面应用。安装器会检测本机 CLI 和解释器，不依赖开发者机器路径。
 
-通过仓库的 **Code → Download ZIP** 下载并解压，或 clone 本仓库，然后在代码目录执行：
+[代码仓库](https://github.com/sanwuwy/codex-trace-viewer) · [0.11.0 下载](https://github.com/sanwuwy/codex-trace-viewer/releases/tag/v0.11.0)
+
+通过 **Code → Download ZIP** 或 Release 下载完整源码包并解压，也可以 clone：
+
+```sh
+git clone https://github.com/sanwuwy/codex-trace-viewer.git
+cd codex-trace-viewer
+```
+
+然后在代码目录执行：
 
 ```sh
 python3 scripts/install_plugin.py --check
@@ -106,7 +115,7 @@ python3 scripts/build_release.py
 
 输出 `dist/codex-trace-viewer-0.11.0-source.zip`、`dist/codex-trace-plugin-0.11.0.zip` 和 `dist/SHA256SUMS`。完整源码 ZIP 包含安装器、文档及资产，是用户下载后安装的推荐包；插件 ZIP 是自包含插件资产包。校验值可用于检查文件是否一致。开发者不得向发布包添加本机轨迹、配置、截图或运行证据。
 
-此目录是独立源码仓库的发布准备目录，尚未上传 GitHub；禁止携带父目录 Git 历史。源码与插件包均采用 [MIT 许可证](LICENSE)。
+公开仓库使用独立 Git 历史，不包含父目录历史、本机轨迹或验证记录。版本发布包含上述两个 ZIP 和 SHA256SUMS；源码与插件包均采用 [MIT 许可证](LICENSE)。
 
 ## 可选浏览器 / Skill 模式
 
