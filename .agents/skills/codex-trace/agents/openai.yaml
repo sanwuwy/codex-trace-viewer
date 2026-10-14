@@ -1,0 +1,4 @@
+interface:
+  display_name: "会话轨迹"
+  short_description: "快捷启动当前会话独立轨迹或全部会话总览，停止当前或全部受管服务"
+  default_prompt: "使用 $codex-trace 启动。"

@@ -1,0 +1,1998 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Codex 轨迹查看器</title>
+<style>
+:root{
+  --bg:#f4f3f0; --panel:#ffffff; --panel2:#faf9f7; --panel3:#f0efeb;
+  --bd:#e4e2db; --bd2:#d5d2c8;
+  --tx:#232219; --tx2:#6a6860; --tx3:#96948b;
+  --blue:#185FA5; --blue-bg:#E6F1FB; --blue-bd:#B5D4F4;
+  --green:#0F6E56; --green-bg:#E1F5EE; --green-bd:#9FE1CB;
+  --amber:#854F0B; --amber-bg:#FAEEDA; --amber-bd:#FAC775;
+  --purple:#534AB7; --purple-bg:#EEEDFE; --purple-bd:#CECBF6;
+  --red:#A32D2D; --red-bg:#FCEBEB; --red-bd:#F7C1C1;
+  --gray-bg:#F1EFE8;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",Arial,sans-serif;
+}
+html[data-theme=dark]{
+  --bg:#1a1a18; --panel:#232321; --panel2:#1f1f1d; --panel3:#2a2a27;
+  --bd:#33322e; --bd2:#403f3a;
+  --tx:#eceae4; --tx2:#a8a69e; --tx3:#7d7b73;
+  --blue:#85B7EB; --blue-bg:#12283d; --blue-bd:#185FA5;
+  --green:#5DCAA5; --green-bg:#0d2b23; --green-bd:#0F6E56;
+  --amber:#EF9F27; --amber-bg:#2e2312; --amber-bd:#854F0B;
+  --purple:#AFA9EC; --purple-bg:#1e1c33; --purple-bd:#534AB7;
+  --red:#F09595; --red-bg:#2d1414; --red-bd:#A32D2D;
+  --gray-bg:#2a2a27;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:var(--sans);font-size:13px;line-height:1.6;color:var(--tx);background:var(--bg);overflow:hidden}
+button{font-family:inherit;font-size:12px;color:var(--tx2);background:var(--panel);border:.5px solid var(--bd2);border-radius:6px;padding:3px 9px;cursor:pointer}
+button:hover{background:var(--panel3);color:var(--tx)}
+button.on{background:var(--blue-bg);border-color:var(--blue-bd);color:var(--blue)}
+input[type=text]{font-family:inherit;font-size:12px;color:var(--tx);background:var(--panel);border:.5px solid var(--bd2);border-radius:6px;padding:4px 8px;outline:none;width:100%}
+input[type=text]:focus{border-color:var(--blue)}
+.app{display:grid;grid-template-rows:44px 1fr;height:100%}
+header{display:flex;align-items:center;gap:10px;padding:0 12px;background:var(--panel);border-bottom:.5px solid var(--bd);font-size:12px}
+header .title{font-size:13px;font-weight:500;color:var(--tx)}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:1px 7px;border-radius:999px;background:var(--gray-bg);color:var(--tx2);border:.5px solid var(--bd);white-space:nowrap}
+.chip.b{background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bd)}
+.chip.g{background:var(--green-bg);color:var(--green);border-color:var(--green-bd)}
+.chip.a{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-bd)}
+.chip.p{background:var(--purple-bg);color:var(--purple);border-color:var(--purple-bd)}
+.chip.r{background:var(--red-bg);color:var(--red);border-color:var(--red-bd)}
+.spacer{flex:1}
+main{display:grid;grid-template-columns:var(--lw,276px) 5px 1fr 5px var(--rw,348px);overflow:hidden;height:100%}
+body.scoped main{grid-template-columns:minmax(0,1fr) 5px var(--rw,348px)}
+body.scoped #left,body.scoped .gutter[data-side=left]{display:none}
+#live-status{font-size:11px;padding:4px 10px;color:var(--tx3);border-bottom:.5px solid var(--bd);display:none}
+#live-status.error{color:var(--amber);background:var(--amber-bg)}
+.gutter{cursor:col-resize;position:relative;background:transparent}
+.gutter:before{content:"";position:absolute;left:2px;top:0;bottom:0;width:1px;background:var(--bd)}
+.gutter:hover:before,.gutter.act:before{background:var(--blue);width:2px}
+body.dragging{cursor:col-resize}
+body.dragging *{user-select:none!important}
+aside,section{overflow:hidden;display:flex;flex-direction:column;min-width:0}
+#left{background:var(--panel2);border-right:.5px solid var(--bd)}
+#right{background:var(--panel2);border-left:.5px solid var(--bd)}
+#center{background:var(--panel)}
+.pane-h{padding:8px 10px;border-bottom:.5px solid var(--bd);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.scroll{overflow:auto;flex:1;min-height:0}
+.scroll::-webkit-scrollbar{width:9px;height:9px}
+.scroll::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:9px;border:2px solid transparent;background-clip:content-box}
+.sess{padding:8px 10px;border-bottom:.5px solid var(--bd);cursor:pointer;position:relative}
+.sess:hover{background:var(--panel3)}
+.sess.sel{background:var(--blue-bg);box-shadow:inset 2px 0 0 var(--blue)}
+.sess.kid{background:var(--panel);border-left:2px solid var(--bd2)}
+.sess.kid:hover{background:var(--panel3)}
+.sess.kid .r2{font-size:11.5px;color:var(--tx2)}
+.tg{cursor:pointer;user-select:none;color:var(--blue);font-size:11px;padding-right:2px}
+.tg.dim{color:var(--tx3);cursor:default}
+/* 会话行已取消「展开子线程」，不再有左侧箭头槽；标题从行内边距直接排。 */
+.sess .r1{display:flex;gap:6px;align-items:center;font-size:11px;color:var(--tx3)}
+.sess .r2{font-size:12px;color:var(--tx);margin:2px 0 1px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.sess .r3{font-size:11px;color:var(--tx3);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sess .r4{display:flex;gap:4px;margin-top:4px;flex-wrap:wrap}
+.sbar{padding:0 10px 8px;border-bottom:.5px solid var(--bd);background:var(--panel)}
+.sbar .nm{font-size:12px;color:var(--tx);font-weight:500;margin:6px 0 3px;font-family:var(--mono);word-break:break-all}
+.tl{display:flex;align-items:flex-end;gap:2px;height:26px;padding:0 10px 6px;overflow-x:auto;background:var(--panel);border-bottom:.5px solid var(--bd)}
+.tl i{min-width:4px;border-radius:2px 2px 0 0;display:block;cursor:pointer;border:.5px solid transparent}
+.tl i.cur{border-color:var(--tx)}
+.fbar{display:flex;align-items:center;gap:4px;padding:5px 10px;background:var(--panel2);border-bottom:.5px solid var(--bd);flex-wrap:wrap}
+.flabel{font-size:11px;color:var(--tx3);padding-right:2px}
+.fchip{font-size:11px;padding:1px 7px;border-radius:999px;border:.5px solid var(--bd2);background:var(--panel);color:var(--tx2);cursor:pointer;user-select:none;white-space:nowrap}
+.fchip i{font-style:normal;color:var(--tx3);margin-left:4px;font-size:10px}
+.fchip:hover{border-color:var(--blue)}
+.fchip.off{opacity:.42;text-decoration:line-through}
+.fbar button{padding:2px 8px;font-size:11px}
+.turn{border-bottom:.5px solid var(--bd)}
+.turn-h{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--panel2);cursor:pointer;position:sticky;top:0;z-index:2;flex-wrap:wrap}
+.turn-h:hover{background:var(--panel3)}
+.turn-h .no{font-weight:500;font-size:12px;color:var(--tx)}
+.turn-b{padding:2px 0}
+.step{display:grid;grid-template-columns:76px 1fr;gap:8px;padding:5px 10px;border-top:.5px solid var(--bd);cursor:pointer}
+.step:hover{background:var(--panel2)}
+.step.sel{background:var(--blue-bg)}
+.step .k{font-size:11px;text-align:right;padding-top:2px;color:var(--tx3)}
+.step .k b{font-weight:500}
+.step .c{min-width:0}
+.step .hd{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11px;color:var(--tx3)}
+.step .tx{white-space:pre-wrap;word-break:break-word;font-size:12.5px;color:var(--tx);max-height:340px;overflow:auto}
+.step .tx.clip{max-height:110px;overflow:hidden;position:relative}
+.step .tx.clip:after{content:"";position:absolute;left:0;right:0;bottom:0;height:34px;background:linear-gradient(transparent,var(--panel))}
+.step.sel .tx.clip:after{background:linear-gradient(transparent,var(--blue-bg))}
+.step pre{margin:2px 0 0;font-family:var(--mono);font-size:11.5px;white-space:pre-wrap;word-break:break-word;background:var(--panel3);border:.5px solid var(--bd);border-radius:6px;padding:5px 7px;color:var(--tx);max-height:220px;overflow:auto}
+.step pre.clip{max-height:70px;overflow:hidden}
+.more{font-size:11px;color:var(--blue);cursor:pointer;user-select:none}
+.k-user b{color:var(--blue)} .k-assistant b{color:var(--green)} .k-reasoning b{color:var(--purple)}
+.k-tool b{color:var(--amber)} .k-token b{color:var(--tx3)} .k-compact b{color:var(--red)}
+.k-file b{color:var(--green)}
+.k-note b,.k-agent b{color:var(--tx3)} .k-developer b{color:var(--tx3)}
+.k-inject b{color:var(--amber)}
+.step.k-inject{opacity:.78}
+.k-interact b{color:var(--purple)}
+.qa{border-left:2px solid var(--purple-bd);padding:2px 0 2px 8px;margin:3px 0}
+.qa .q{font-size:12.5px;color:var(--tx2)}
+.qa .a{font-size:12.5px;color:var(--tx);margin-top:2px}
+.qa .qt{display:inline-block;font-size:10px;color:var(--purple);border:.5px solid var(--purple-bd);border-radius:4px;padding:0 4px;margin-right:6px;background:var(--purple-bg)}
+.divider{display:flex;align-items:center;gap:8px;padding:5px 10px;font-size:11px;color:var(--tx3)}
+.divider:before,.divider:after{content:"";flex:1;height:.5px;background:var(--bd2)}
+.tabs{display:flex;gap:0;border-bottom:.5px solid var(--bd);background:var(--panel2)}
+.tabs button{border:0;border-radius:0;background:transparent;padding:6px 10px;font-size:12px;color:var(--tx3);border-bottom:2px solid transparent}
+.tabs button.on{color:var(--tx);border-bottom-color:var(--blue);font-weight:500}
+.kv{display:grid;grid-template-columns:96px 1fr;gap:2px 8px;padding:8px 10px;font-size:12px;border-bottom:.5px solid var(--bd)}
+.kv dt{color:var(--tx3);font-size:11px}
+.kv dd{margin:0;color:var(--tx);word-break:break-word;font-family:var(--mono);font-size:11.5px}
+.sec{padding:8px 10px;border-bottom:.5px solid var(--bd)}
+.sec h4{margin:0 0 6px;font-size:11px;font-weight:500;color:var(--tx3);letter-spacing:.03em}
+.bar{height:6px;border-radius:3px;background:var(--gray-bg);overflow:hidden;margin:4px 0 2px}
+.bar i{display:block;height:100%;background:var(--blue)}
+pre.json{margin:0;padding:8px 10px;font-family:var(--mono);font-size:11px;white-space:pre;overflow:auto;color:var(--tx);background:var(--panel2);height:100%}
+.empty{color:var(--tx3);font-size:12px;padding:20px 14px;text-align:center}
+#drop{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:50;color:#fff;font-size:15px}
+#drop.on{display:flex}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:60;padding:40px}
+#modal.on{display:flex}
+#modal .box{background:var(--panel);border-radius:10px;max-width:920px;width:100%;margin:auto;max-height:100%;display:flex;flex-direction:column;overflow:hidden;border:.5px solid var(--bd2)}
+#modal .box .h{display:flex;gap:8px;align-items:center;padding:10px 12px;border-bottom:.5px solid var(--bd)}
+.hint{font-size:11px;color:var(--tx3)}
+.pname{font-size:11.5px;color:var(--blue);font-family:var(--mono);margin:8px 0 3px}
+.sect{display:flex;align-items:center;gap:4px;padding:8px 10px 3px;font-size:11px;color:var(--tx3);letter-spacing:.04em;cursor:pointer;user-select:none}
+.sect:hover{color:var(--tx2)}
+.moreN{padding:5px 10px 6px 24px;font-size:11px;color:var(--blue);cursor:pointer;user-select:none}
+.moreN:hover{text-decoration:underline}
+.proj{display:flex;align-items:center;gap:5px;padding:4px 10px;font-size:12px;color:var(--tx3);cursor:pointer;user-select:none}
+.proj:hover{background:var(--panel3)}
+.proj .pn{color:var(--tx2)}
+.proj .pc{margin-left:auto;font-size:10px;color:var(--tx3)}
+.sess .ttl{font-size:12.5px;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sess .r2{font-size:10.5px;color:var(--tx3);padding-left:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.warn{font-size:11px;color:var(--amber);background:var(--amber-bg);border:.5px solid var(--amber-bd);border-radius:6px;padding:5px 8px;margin:8px 10px}
+.message-details .kv{grid-template-columns:88px minmax(0,1fr);margin:0;padding:0;border:0}
+.message-details .kv dt,.message-details .kv dd{min-width:0;overflow-wrap:anywhere}
+.message-details .message-body{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12.5px;line-height:1.75}
+.message-details pre.json{white-space:pre-wrap;overflow-wrap:anywhere;height:auto;padding:0}
+.message-details summary{cursor:pointer;color:var(--tx2);font-size:12px}
+.message-details details[open] summary{margin-bottom:8px}
+#insp .kv{grid-template-columns:minmax(72px,100px) minmax(0,1fr)}
+#insp .kv dt,#insp .kv dd{min-width:0;overflow-wrap:anywhere}
+#insp .sec .kv{margin:0;padding:0;border:0}
+#insp pre.json{white-space:pre-wrap;overflow-wrap:anywhere;height:auto;max-width:100%}
+#insp summary{cursor:pointer;color:var(--tx2);font-size:12px}
+#insp details[open] summary{margin-bottom:8px}
+#tabs{flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <span class="title">Codex 轨迹查看器</span>
+    <span id="mode" class="chip">检测中…</span>
+    <span id="count" class="chip"></span>
+    <span id="cross" class="chip" style="display:none">已切片</span>
+    <span class="spacer"></span>
+    <label class="chip" style="cursor:pointer"><input id="detail" type="checkbox" checked style="margin:0 3px 0 0">详细模式</label>
+    <button id="pick">选择 sessions 目录</button>
+    <button id="trace-pause" style="display:none">暂停并释放</button>
+    <button id="reload">重新扫描</button>
+    <button id="theme">深色</button>
+  </header>
+  <main>
+    <aside id="left">
+      <div class="pane-h"><input id="q" type="text" placeholder="搜索 会话 / 目录 / 首条消息"></div>
+      <div id="slist" class="scroll"></div>
+    </aside>
+    <div class="gutter" data-side="left" title="拖动调整宽度"></div>
+    <section id="center">
+      <div id="live-status" role="status" aria-live="polite"></div>
+      <div class="sbar" id="sbar"></div>
+      <div class="tl" id="tl"></div>
+      <div class="fbar" id="filter"></div>
+      <div class="scroll" id="stream"><div class="empty">左侧选择一个会话</div></div>
+    </section>
+    <div class="gutter" data-side="right" title="拖动调整宽度"></div>
+    <aside id="right">
+      <div class="tabs" id="tabs"></div>
+      <div class="scroll" id="insp"><div class="empty">点击中间任意步骤查看详情</div></div>
+    </aside>
+  </main>
+</div>
+<div id="drop">松开以载入 rollout 文件</div>
+<div id="modal"><div class="box"><div class="h"><b id="mtitle" style="font-size:13px"></b><span class="spacer" style="flex:1"></span><button id="mclose">关闭</button></div><div class="scroll" id="mbody" style="flex:1;min-height:0"></div></div></div>
+<input id="dirpick" type="file" webkitdirectory multiple style="display:none">
+
+<script type="application/json" id="viewer-config">{"thread_id":null}</script>
+<script>
+"use strict";
+const DEFAULT_HIDDEN = ["inject","dev","token","note"];
+const S = {
+  mode: "detect", sessions: [], filtered: [], rows: [], tree: [], current: null, parsed: null,
+  sel: null, selTurn: null, tab: "overview", detail: true, collapsed: loadCollapsed(), recentAll: false,
+  hide: loadHide(), expanded: new Set(), truncMap: new Map(), crossed: false,
+  scope: viewerScope(), loadToken: 0, polling: null, pollTimer: null, pollAbort: null, schemaRestore: null
+};
+function viewerScope(){
+  const node = document.querySelector("#viewer-config");
+  if(!node || !node.textContent) return null;
+  const value = JSON.parse(node.textContent).thread_id;
+  if(value !== null && (typeof value !== "string" || !value)) throw new Error("会话绑定配置无效");
+  return value;
+}
+function setSessions(list){
+  if(S.scope){ S.sessions=[...list]; S.tree=[]; S.rows=[]; return; }
+  for(const s of list)
+    s._searchText = [s.name, s.title, s.cwd, s.preview, s.project, s.session_id, s.agent].map(x=>x||"").join(" ").toLowerCase();
+  S.sessions = [...list].sort(byActivity);   // 搜索/兜底索引也统一按活动时间倒序
+  S.tree = buildTree(S.sessions);
+  S.rows = [];
+}
+
+/* ---------------- utils ---------------- */
+const $ = s => document.querySelector(s);
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function num(n){ return n==null?"—":Number(n).toLocaleString("en-US"); }
+function bytes(n){ if(n<1024) return n+" B"; if(n<1048576) return (n/1024).toFixed(1)+" KB"; if(n<1073741824) return (n/1048576).toFixed(1)+" MB"; return (n/1073741824).toFixed(2)+" GB"; }
+function dur(ms){
+  if(ms==null) return "—";
+  if(ms<1000) return Math.round(ms)+" ms";
+  let s = Math.round(ms/1000);
+  if(s<60) return s+" s";
+  let m = Math.floor(s/60); s -= m*60;
+  if(m<60) return m+" 分 "+s+" 秒";
+  const h = Math.floor(m/60); m -= h*60;
+  return h+" 时 "+m+" 分";
+}
+function elapsed(ms){
+  if(ms==null || !Number.isFinite(ms)) return "—";
+  const value = Math.round(ms), h = Math.floor(value/3600000), m = Math.floor(value%3600000/60000);
+  return [h? h+" 时" : "", h||m? m+" 分" : "", (value%60000)/1000+" 秒"].filter(Boolean).join(" ");
+}
+function clockOf(x){ if(x==null) return "—"; const d=(typeof x==="number")? new Date(x*1000) : new Date(x); return isNaN(d.getTime())?"—":d.toLocaleTimeString("zh-CN",{hour12:false}); }
+function stampOf(x){ if(!x) return "—"; const d=new Date(x); return isNaN(d.getTime())?x:d.toLocaleString("zh-CN",{hour12:false}); }
+function shortId(s){ return s? String(s).slice(0,8):"—"; }
+function pct(a,b){ return (b>0)? Math.min(100, (a/b)*100) : null; }
+function dayLabel(s){ return s? s.replace(/-/g,"/") : ""; }
+
+function contentText(c){
+  if(typeof c==="string") return c;
+  if(!Array.isArray(c)) return "";
+  return c.map(x=>{
+    if(typeof x==="string") return x;
+    if(!x||typeof x!=="object") return "";
+    if(typeof x.text==="string") return x.text;
+    if(x.type==="input_image"||x.type==="image") return "[图片]";
+    return "["+(x.type||"item")+"]";
+  }).filter(Boolean).join("\n");
+}
+
+function secTxt(secs){
+  if(secs==null) return "";
+  if(secs === 0) return "0 ms";
+  if(secs < 0.001) return (secs*1e6).toFixed(1)+" µs";
+  if(secs < 1) return Math.max(1, Math.round(secs*1000))+" ms";
+  if(secs < 60) return secs.toFixed(2)+" s";
+  return dur(secs*1000);
+}
+
+/* 执行结果是权威来源；自由文本代码不能当成已执行的命令。 */
+function toolView(st){
+  const it = st.result && st.result.item;
+  const params = parseToolArgs(st).params || {};
+  let cmd = "", workdir = (it && it.cwd) || params.workdir || params.cwd || "";
+  const kind = (it && it.type) || st.callType || "";
+  if(it && Array.isArray(it.command) && it.command.length){
+    cmd = it.command.length>=3 && /^-[a-z]*c[a-z]*$/.test(it.command[1]) ? it.command[2] : it.command.join(" ");
+  }
+  if(!cmd && it && Array.isArray(it.parsed_cmd) && it.parsed_cmd.length) cmd = it.parsed_cmd[0].cmd||"";
+  if(!cmd) cmd = params.cmd || params.command || "";
+  if(Array.isArray(cmd)) cmd = cmd.join(" ");
+  if(typeof cmd !== "string") cmd = "";
+  let secs=null;
+  const du = it && it.duration;
+  if(du && typeof du==="object" && (typeof du.secs==="number" || typeof du.nanos==="number")) secs = (du.secs||0) + (du.nanos||0)/1e9;
+  if(secs!=null && (!Number.isFinite(secs) || secs<0)) secs = null;
+  const rc = it && it.result;
+  const exitCode = it ? it.exit_code : undefined;
+  let status = (it && it.status) || (st.outputRecords && st.outputRecords.length ? "已返回" : "未记录结果");
+  if((it && it.error) || (rc && rc.isError===true) || (exitCode!=null && exitCode!==0)) status = "failed";
+  if((st.tool==="exec" || st.tool==="wait") && /^Script failed\r?\n/.test(st.out||"")) status = "failed";
+  const start = st.result && st.result.startedAt, end = st.result && st.result.completedAt;
+  const eventMs = Number.isFinite(start) && Number.isFinite(end) && end>=start ? end-start : null;
+  return {cmd, workdir, kind, exitCode, status, secs, eventMs};
+}
+
+/* ---------------- 解析 rollout ---------------- */
+/* 生命周期参考 https://learn.chatgpt.com/docs/app-server；字段名以本机 JSONL 为准。 */
+function mkTurn(p, ts){
+  return { id:p.turn_id, ctx:p, ts, steps:[], tokenSteps:[], usageRecords:[], startedAt:null,
+           completedAt:null, durationMs:null, ttftMs:null, lastMsg:"", ctxWindow:p.model_context_window||null,
+           collab:"", usage:null, threadUsage:null };
+}
+function pushStep(t, st){ if(t) t.steps.push(st); }
+
+/* 剥掉程序化信封标签，保留内部真实内容 */
+function stripEnvelope(t){
+  const s = (t||"").trim();
+  const m = /^<([a-z][a-z0-9_]*)>\s*([\s\S]*?)\s*<\/\1>$/.exec(s);
+  return m ? m[2] : s;
+}
+/* <send_user_message_question_reply> 里是用户对 ask_user 的回答，解析成问答对 */
+function parseInteract(text){
+  const s = (text||"").trim();
+  if(!/^<send_user_message_question_reply>/.test(s)) return null;
+  const body = stripEnvelope(s);
+  let arr = null;
+  try{ arr = JSON.parse(body); }catch(e){}
+  if(!Array.isArray(arr)) return {raw: body, items: []};
+  return {raw: body, items: arr.map(x => ({
+    q: x.question || x.prompt || "",
+    a: x.answer != null ? String(x.answer) : "",
+    id: Array.isArray(x.questionItemId) ? x.questionItemId.join("·") : String(x.questionItemId || "")
+  })).filter(x => x.q || x.a)};
+}
+/* 程序注入的识别（不依赖 metadata，旧格式会话没有任何 metadata）：
+   - 任意信封标签  <environment_context> / <send_user_message_question_reply> / <in-app-browser-context ...>
+   - # AGENTS.md instructions
+   - # Files mentioned/pasted by the user（附件清单）
+   - The following is the Codex agent history…（guardian 审查注入，反而带 metadata） */
+function isInjectionText(t, md){
+  if(!t) return false;
+  if(md && md.guardian_sources) return true;
+  return /^</.test(t)
+      || /^#\s*AGENTS\.md/i.test(t)
+      || /^#\s*Files\s+(mentioned|pasted)\s+by\s+the\s+user/i.test(t)
+      || /^The following is the Codex agent history/i.test(t);
+}
+function injectionSource(t){
+  const h = (t||"").trim().slice(0, 160);
+  if(/AGENTS\.md/i.test(h)) return "AGENTS.md";
+  if(/^#\s*Files\s+(mentioned|pasted)\s+by\s+the\s+user/i.test(h)) return "附件清单";
+  if(/^The following is the Codex agent history/i.test(h)) return "代理历史注入";
+  const m = /^<([a-zA-Z0-9_\-]+)/.exec(h);
+  if(m) return m[1];
+  if(/^#/.test(h)) return "指令块";
+  if(/^Instructions|^SYSTEM/i.test(h)) return "系统指令";
+  return "注入上下文";
+}
+/* content_item_kinds 与内容块逐项对应；只有完整匹配时才分离真实输入与附加上下文。 */
+function messageBlocks(p){
+  const content = Array.isArray(p.content) ? p.content : typeof p.content==="string" ? [{type:"text",text:p.content}] : [];
+  const kinds = (p.internal_chat_message_metadata_passthrough||{}).content_item_kinds;
+  const attributed = p.role==="user" && Array.isArray(kinds) && kinds.length===content.length
+    && kinds.every(x=>typeof x==="string") && kinds.some(x=>x.startsWith("user."));
+  return {content:attributed? content.filter((_,i)=>kinds[i].startsWith("user.")) : content,
+    context:attributed? content.filter((_,i)=>!kinds[i].startsWith("user.")) : [], attributed};
+}
+function classifyMessage(d, p){
+  const role = p.role || "";
+  const md = (d.metadata && typeof d.metadata === "object") ? d.metadata : {};
+  const blocks = messageBlocks(p), text = contentText(blocks.content);
+  const trimmed = text.trim();
+  if(role === "user"){
+    const interact = parseInteract(trimmed);
+    if(interact) return {kind:"interact"};          // 交互回答：单独成类，带问/答标注
+    if(!blocks.attributed && isInjectionText(trimmed, md)) return {kind:"inject", src: injectionSource(trimmed)};
+    return {kind:"msg", role:"user"};               // 其余一律视为用户真实输入
+  }
+  if(role === "developer") return {kind:"dev", src: injectionSource(trimmed)};
+  return {kind:"msg", role};
+}
+
+/* App 口径：一轮 = 一次人类输入（含交互回答）。
+   实测同一 turn_id 下可能出现多次人类输入（agent 用 ask_user 提问后用户回答会复用 turn_id），
+   此时按人类输入切段，使轮数与 ChatGPT 界面一致。 */
+function isHumanInput(s){ return (s.kind === "msg" && s.role === "user") || s.kind === "interact"; }
+function splitTurnsByInput(P){
+  const out = [];
+  for(const t of P.turns){
+    const responses = new Set();
+    t.usageRecords = t.usageRecords.filter(r=>{
+      const id = r.payload.response_id;
+      if(!id) return true;
+      if(responses.has(id)) return false;
+      responses.add(id); return true;
+    });
+    const idx = [];
+    t.steps.forEach((s,i)=>{ if(isHumanInput(s)) idx.push(i); });
+    if(idx.length <= 1){ out.push(t); continue; }
+    const starts = [0, ...idx.slice(1)];          // 在第二次及以后的人类输入处切段
+    const n = starts.length;
+    for(let k=0;k<n;k++){
+      const from = starts[k], to = (k+1<n) ? starts[k+1] : t.steps.length;
+      const nt = mkTurn(t.ctx || {turn_id:t.id}, t.ts);
+      nt.id = t.id; nt.ghost = t.ghost; nt.ctx = t.ctx; nt.collab = t.collab;
+      nt.sourceTurn = t;
+      nt.part = k+1; nt.parts = n;
+      nt.steps = t.steps.slice(from, to);
+      nt.tokenSteps = nt.steps.filter(s => s.kind === "token");
+      nt.usageRecords = t.usageRecords.filter(r=>(k===0 || r.stepIndex>from) && (k===n-1 || r.stepIndex<=to));
+      const lastTok = nt.tokenSteps[nt.tokenSteps.length-1];
+      nt.ctxWindow = lastTok?.cw ?? null;
+      /* turn 级耗时/TTFT 归属第一段（与 ChatGPT 界面一致：时长标在该轮首个回复上） */
+      if(k === 0){ nt.startedAt = t.startedAt; nt.durationMs = t.durationMs; nt.ttftMs = t.ttftMs; }
+      if(k === n-1){ nt.completedAt = t.completedAt; nt.lastMsg = t.lastMsg; }
+      out.push(nt);
+    }
+  }
+  P.turns = out;
+}
+const USAGE_FIELDS = ["input_tokens","cached_input_tokens","cache_write_input_tokens","output_tokens","reasoning_output_tokens","total_tokens"];
+function computeUsage(turns){
+  for(const t of turns){
+    const requests = t.usageRecords.filter(r=>r.payload.usage && typeof r.payload.usage==="object" && !Array.isArray(r.payload.usage));
+    if(!requests.length) continue;
+    t.usage = {};
+    for(const key of USAGE_FIELDS){
+      if(requests.every(r=>typeof r.payload.usage[key]==="number" && Number.isFinite(r.payload.usage[key]) && r.payload.usage[key]>=0))
+        t.usage[key] = requests.reduce((sum,r)=>sum+r.payload.usage[key],0);
+    }
+    t.cacheIssue = requests.some(r=>{
+      const u = r.payload.usage;
+      return typeof u.input_tokens==="number" && Number.isFinite(u.input_tokens) && u.input_tokens>=0
+        && typeof u.cached_input_tokens==="number" && Number.isFinite(u.cached_input_tokens) && u.cached_input_tokens>u.input_tokens;
+    });
+    t.requestCount = requests.length;
+  }
+}
+function usageOfTurn(t){
+  const u = t.usage || t.tokenSteps.at(-1)?.last;
+  if(!u || (!t.usage && u.input_tokens===0 && u.output_tokens===0 && u.total_tokens>0)) return null;
+  const fields = USAGE_FIELDS.filter(key=>typeof u[key]==="number" && Number.isFinite(u[key]) && u[key]>=0);
+  return fields.length? Object.fromEntries(fields.map(key=>[key,u[key]])) : null;
+}
+function computeSpans(turns){
+  for(const t of turns){
+    let mn = null, mx = null, toolMs = 0;
+    for(const s of t.steps){
+      const timestamps = [s.ts, s.result && s.result.raw && s.result.raw.timestamp,
+        ...(s.outputRecords||[]).map(r=>r.timestamp)];
+      for(const ts of timestamps){
+        if(ts==null || ts==="") continue;
+        const v = new Date(ts).getTime();
+        if(!Number.isFinite(v)) continue;
+        if(mn===null || v<mn) mn = v;
+        if(mx===null || v>mx) mx = v;
+      }
+      if(s.kind==="tool" || s.kind==="mcp"){
+        const v = toolView(s);
+        if(v.secs!=null) toolMs += v.secs*1000;
+      }
+    }
+    t.firstTs = mn; t.lastTs = mx; t.spanMs = mn===null? null : mx-mn;
+    t.toolMs = Math.round(toolMs);
+  }
+}
+
+function parseRollout(text){
+  const stream = createRolloutStream();
+  stream.feed(text); stream.finish();
+  return stream.build();
+}
+/* 保存已解析记录；追加传输只解析新增 JSONL，语义配对与统计仍由完整记录重建。 */
+function createRolloutStream(records=[], fragments=[], canAppend=true){
+  return {
+    records, fragments, canAppend,
+    get pending(){ return this.fragments.join(""); },
+    feed(text){
+      if(!this.canAppend) throw new Error("快照末行已完整解析；后续增长必须重建快照");
+      if(typeof text!=="string") throw new TypeError("轨迹分段必须为文本");
+      let start = 0, end;
+      while((end = text.indexOf("\n", start))!==-1){
+        let line = text.slice(start, end); start = end+1;
+        if(this.fragments.length){
+          this.fragments.push(line); line = this.pending; this.fragments = [];
+        }
+        if(line.length<2) continue;
+        try{ this.records.push(JSON.parse(line)); }catch(e){}
+      }
+      if(start<text.length) this.fragments.push(text.slice(start));
+      return this;
+    },
+    finish(){
+      const line = this.pending;
+      if(line.length<2) return this;
+      try{
+        this.records.push(JSON.parse(line));
+        this.fragments = []; this.canAppend = false;
+      }catch(e){}
+      return this;
+    },
+    fork(){ return createRolloutStream(this.records.slice(), this.fragments.slice(), this.canAppend); },
+    build(){ return parseRecords(this.records); }
+  };
+}
+function parseRecords(records){
+  const P = {meta:null, world:null, settings:null, rateLimits:null, compacts:0, turns:[], pre:[], recs:0, dynTools:null};
+  let cur = null;
+  const byTurn = new Map(), byCall = new Map(), byItem = new Map();
+  const callKey = (t, id) => (t && t.id || "") + ":" + id;
+  const turnFor = (id, ts) => {
+    if(!id) return cur;
+    let t = byTurn.get(id);
+    if(!t){ t = mkTurn({turn_id:id}, ts); t.ghost = true; byTurn.set(id, t); P.turns.push(t); }
+    return t;
+  };
+  for(const d of records){
+    P.recs++;
+    const p = d.payload || {}, ts = d.timestamp, ord = d.ordinal;
+    if(d.type === "session_meta"){
+      if(!P.meta) P.meta = p;
+      /* 会话自带的工具清单（含 inputSchema），是「Schema」页签的首选数据源 */
+      if(!P.dynTools && Array.isArray(p.dynamic_tools)) P.dynTools = p.dynamic_tools;
+      continue;
+    }
+    if(d.type === "world_state"){ P.world = p; continue; }
+    if(d.type === "compacted"){
+      const st = {kind:"compact", ts, ord, raw:d, win:p.window_number, text:p.message||""};
+      P.compacts++;
+      if(cur) cur.steps.push(st); else P.pre.push(st);
+      continue;
+    }
+    if(d.type === "turn_context"){
+      let t = byTurn.get(p.turn_id);
+      if(t){ t.ctx = p; t.ghost = false; if(!t.ts) t.ts = ts; }
+      else { t = mkTurn(p, ts); byTurn.set(p.turn_id, t); P.turns.push(t); }
+      for(const s of t.steps) if(s.context===null) s.context = p;
+      cur = t; continue;
+    }
+    if(d.type === "token_usage_record"){
+      const t = p.turn_id ? turnFor(p.turn_id, ts) : cur;
+      if(t){ t.usage = p.turn_token_usage || t.usage; t.threadUsage = p.thread_token_usage || t.threadUsage;
+        t.usageRecords.push({payload:p, raw:d, stepIndex:t.steps.length}); }
+      continue;
+    }
+    if(d.type === "inter_agent_communication_metadata"){
+      pushStep(cur, {kind:"note", label:"子代理通信触发", ts, ord, raw:d}); continue;
+    }
+    if(d.type === "event_msg"){
+      const ty = p.type;
+      const t = p.turn_id ? turnFor(p.turn_id, ts) : cur;
+      if(ty === "thread_settings_applied"){ P.settings = p.thread_settings; continue; }
+      if(ty === "task_started"){ if(t){ t.startedAt = p.started_at; t.ctxWindow = p.model_context_window || t.ctxWindow; t.collab = p.collaboration_mode_kind||""; } continue; }
+      if(ty === "task_complete"){ if(t){ t.completedAt=p.completed_at; t.durationMs=p.duration_ms; t.ttftMs=p.time_to_first_token_ms; t.lastMsg=p.last_agent_message||""; } continue; }
+      if(ty === "token_count"){
+        const info = p.info || {};
+        if(p.rate_limits) P.rateLimits = p.rate_limits;
+        if(t){
+          t.ctxWindow = info.model_context_window || t.ctxWindow;
+          const st = {kind:"token", ts, ord, raw:d, total:info.total_token_usage, last:info.last_token_usage, cw:info.model_context_window??null};
+          t.tokenSteps.push(st); t.steps.push(st);
+        }
+        continue;
+      }
+      if(ty === "item_completed"){
+        const it = p.item || {};
+        const itype = it.type || "";
+        const attach = {result:{item:it, startedAt:p.started_at_ms, completedAt:p.completed_at_ms, raw:d}};
+        const target = byCall.get(callKey(t, it.call_id || it.id)) || byItem.get(callKey(t, it.id));
+        if(target) Object.assign(target, attach);
+        if(itype === "CommandExecution" || Array.isArray(it.command)){
+          if(!target){
+            const st = Object.assign({kind:"tool", tool:itype||"CommandExecution", ts, ord, raw:d, args:"", id:it.id, origin:"event"}, attach);
+            pushStep(t, st); if(it.id) byItem.set(callKey(t, it.id), st);
+          }
+        } else if(itype === "FileChange"){
+          const ch = it.changes || {};
+          const files = Object.keys(ch).map(k => ({path:k, type:((ch[k]||{}).type)||"", len:String((ch[k]||{}).content||"").length}));
+          pushStep(t, {kind:"file", files, status:it.status||"", ts, ord, raw:d});
+        } else if(itype === "McpToolCall"){
+          if(target) Object.assign(target, attach, {server:it.server||""});
+          else {
+            const st = Object.assign({kind:"mcp", server:it.server||"", tool:it.tool||"", args:it.arguments,
+              ts, ord, raw:d, id:it.id, origin:"event"}, attach);
+            pushStep(t, st); if(it.id) byItem.set(callKey(t, it.id), st);
+          }
+        } else if(itype === "Extension"){
+          const res = (it.results||[]).slice(0,6).map(r => ({title:r.title||"", url:r.url||"", snippet:String(r.snippet||"").slice(0,180)}));
+          pushStep(t, {kind:"search", query:it.query||"", results:res, ts, ord, raw:d});
+        } else if(itype === "ImageView"){
+          pushStep(t, {kind:"note", label:"查看图片 " + String(it.path||"").split(/[\\/]/).pop(), ts, ord, raw:d});
+        } else if(itype === "SubAgentActivity" || itype === "CollabAgentToolCall" || itype === "ContextCompaction" || itype === "ExtensionNoop"){
+          pushStep(t, {kind:"note", label: itype + (it.kind?" · "+it.kind:"") + (it.tool?" · "+it.tool:""), ts, ord, raw:d});
+        } else if(itype !== "UserMessage" && itype !== "Reasoning" && itype !== "AgentMessage" && itype !== ""){
+          pushStep(t, {kind:"note", label:"事件 " + itype, ts, ord, raw:d});
+        }
+        continue;
+      }
+      continue;
+    }
+    if(d.type === "response_item"){
+      const ty = p.type;
+      const tid = (p.internal_chat_message_metadata_passthrough||{}).turn_id;
+      const t = tid ? turnFor(tid, ts) : cur;
+      if(ty === "message"){
+        const cls = classifyMessage(d, p);
+        const txt = contentText(messageBlocks(p).content);
+        pushStep(t, {kind:cls.kind, role:cls.role||"", src:cls.src||"", text:txt,
+                     act: cls.kind==="interact" ? parseInteract(txt) : null,
+                     full:txt.length, ts, ord, raw:d, id:p.id, context:t && !t.ghost ? t.ctx : null});
+      } else if(ty === "reasoning"){
+        const sum = (p.summary||[]).map(x=>x&&x.text?x.text:"").filter(Boolean).join("\n").trim();
+        pushStep(t, {kind:"reasoning", summary:sum, enc:(p.encrypted_content||"").length, ts, ord, raw:d, id:p.id});
+      } else if(ty === "function_call" || ty === "custom_tool_call"){
+        const st = {kind:"tool", tool:p.name||"", ns:p.namespace||"", args:(ty==="custom_tool_call"? p.input : p.arguments)??"",
+                    callId:p.call_id||p.id, callType:ty, ts, ord, raw:d, id:p.id};
+        pushStep(t, st); if(st.callId) byCall.set(callKey(t, st.callId), st);
+        if(p.id) byItem.set(callKey(t, p.id), st);
+      } else if(ty === "function_call_output" || ty === "custom_tool_call_output"){
+        const st = byCall.get(callKey(t, p.call_id));
+        const out = typeof p.output === "string" || Array.isArray(p.output) ? contentText(p.output) : JSON.stringify(p.output, null, 2);
+        if(st){
+          st.out = [st.out, out].filter(x=>x!=null && x!=="").join("\n");
+          (st.outputRecords ||= []).push(d);
+        }
+        else pushStep(t, {kind:"toolout", text:out, ts, ord, raw:d, callId:p.call_id});
+      } else if(ty === "agent_message"){
+        pushStep(t, {kind:"agent", author:p.author||"", recipient:p.recipient||"", text:contentText(p.content), ts, ord, raw:d});
+      } else {
+        pushStep(t, {kind:"other", sub:ty||"?", ts, ord, raw:d});
+      }
+      continue;
+    }
+  }
+  splitTurnsByInput(P);
+  computeUsage(P.turns);
+  computeSpans(P.turns);
+  P.totals = computeTotals(P);
+  return P;
+}
+
+function computeTotals(P){
+  let tools=0, toolMs=0, tokens=0, inTok=0, outTok=0, cached=0, reasoning=0, durMs=0, ttfts=[];
+  let mcp=0, commands=0, files=0, searches=0, maxTool=null;
+  const kinds = {};
+  for(const t of P.turns){
+    toolMs += t.toolMs;
+    if(t.spanMs==null) durMs = null;
+    else if(durMs!=null) durMs += t.spanMs;
+    if(t.ttftMs) ttfts.push(t.ttftMs);
+    const u = usageOfTurn(t);
+    if(u){ inTok += u.input_tokens||0; outTok += u.output_tokens||0; cached += u.cached_input_tokens||0; reasoning += u.reasoning_output_tokens||0; tokens += u.total_tokens||0; }
+    for(const s of t.steps){
+      const k = kindOfStep(s);
+      kinds[k] = (kinds[k]||0) + 1;
+      if(s.kind === "mcp" || (s.result && s.result.item.type==="McpToolCall")) mcp++;
+      else if(s.kind === "file") files += (s.files||[]).length;
+      else if(s.kind === "search") searches++;
+      if(s.kind==="tool" || s.kind==="mcp"){
+        if(s.callId) tools++;
+        if(s.result && s.result.item.type==="CommandExecution") commands++;
+        const v = toolView(s);
+        if(v.secs && (!maxTool || v.secs > maxTool.secs)) maxTool = {secs:v.secs, cmd:(v.cmd||"").slice(0,70)};
+      }
+    }
+  }
+  const preKinds = {};
+  for(const s of P.pre) preKinds[s.kind] = (preKinds[s.kind]||0)+1;
+  return {turns:P.turns.length, tools, toolMs, mcp, commands, files, searches, maxTool, durMs, tokens, inTok, outTok, cached, reasoning,
+          kinds, ttft: ttfts.length? ttfts.reduce((a,b)=>a+b,0)/ttfts.length : null, recs:P.recs};
+}
+
+/* ---------------- 数据源 ---------------- */
+async function detectMode(){
+  try{
+    const r = await fetch("/api/sessions?limit=0", {cache:"no-store"});
+    if(r.ok){
+      const j = await r.json();
+      if(j && Array.isArray(j.items) && j.root){ S.mode="server"; S.sessions=j.items; return; }
+    }
+  }catch(e){}
+  S.mode = "local";
+}
+
+async function loadParsed(sess, token, signal, onProgress){
+  const check = () => {
+    if(signal?.aborted || token!=null && token!==S.loadToken)
+      throw Object.assign(new Error("轨迹读取已取消"), {name:"AbortError"});
+  };
+  check();
+  let source, body, crossed = false;
+  if(S.mode==="server"){
+    source = await fetch("/api/raw?path="+encodeURIComponent(sess.path), {cache:"no-store", signal});
+    if(!source.ok) throw new Error("读取失败 HTTP "+source.status);
+    crossed = source.headers.get("X-Truncated")==="1";
+    body = source.body;
+  } else {
+    source = sess._file;
+    if(!source) throw new Error("本地文件已失效，请重新选择目录");
+    // https://developer.mozilla.org/en-US/docs/Web/API/Blob/stream
+    if(typeof source.stream==="function") body = source.stream();
+  }
+  check();
+  onProgress?.();
+  let P;
+  if(body && typeof body.getReader==="function" && typeof TextDecoder==="function"){
+    // https://developer.mozilla.org/en-US/docs/Web/API/ReadableStreamDefaultReader/read
+    // https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/decode
+    const reader = body.getReader(), decoder = new TextDecoder("utf-8"), parser = createRolloutStream();
+    let complete = false, cancellation = null, chunks = 0, received = 0;
+    const cancel = () => {
+      if(!cancellation) cancellation = reader.cancel().catch(error=>console.warn("轨迹读取取消失败", error));
+      return cancellation;
+    };
+    const onAbort = () => { cancel(); };
+    signal?.addEventListener("abort", onAbort, {once:true});
+    try{
+      check();
+      for(;;){
+        const part = await reader.read(); check();
+        if(part.done) break;
+        if(part.value.byteLength>0) onProgress?.();
+        parser.feed(decoder.decode(part.value, {stream:true})); received += part.value.byteLength;
+        if(S.scope) scopedStatus("正在读取完整轨迹 · "+bytes(received)+" · 已解析 "+num(parser.records.length)+" 条");
+        if(++chunks%64===0){ await new Promise(resolve=>setTimeout(resolve,0)); check(); }
+      }
+      parser.feed(decoder.decode()); parser.finish(); check();
+      P = parser.build(); complete = true;
+    } finally {
+      signal?.removeEventListener("abort", onAbort);
+      if(!complete) await cancel();
+      else if(cancellation) await cancellation;
+      reader.releaseLock();
+    }
+  } else {
+    const text = await source.text(); check();
+    P = parseRollout(text);
+  }
+  check(); S.crossed = crossed;
+  return P;
+}
+
+function pushStats(sess, stats){
+  sess.stats = stats;
+  if(S.mode!=="server") return;
+  fetch("/api/stats", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({path:sess.path, stats})}).catch(()=>{});
+}
+
+function scopedStatus(text, error=false){
+  const box = $("#live-status");
+  box.style.display = "block"; box.textContent = text; box.className = error? "error" : "";
+  $("#reload").textContent = error? "重试" : "刷新";
+}
+function startScopedPolling(){
+  if(S.pollTimer!==null) return;
+  S.pollTimer = setInterval(()=>{ if(!document.hidden) refreshScoped(); }, 2000);
+}
+function stopScopedPolling(){
+  if(S.pollTimer!==null) clearInterval(S.pollTimer);
+  S.pollTimer = null; S.loadToken++;
+  if(S.pollAbort) S.pollAbort.abort();
+}
+function refreshScoped(){
+  if(!S.scope) return Promise.resolve();
+  if(S.polling) return S.polling;
+  const token = ++S.loadToken, scope = S.scope;
+  const current = () => token===S.loadToken && scope===S.scope;
+  // https://developer.mozilla.org/en-US/docs/Web/API/AbortController/abort
+  const controller = new AbortController(), options = {cache:"no-store", signal:controller.signal};
+  S.pollAbort = controller;
+  let timeout;
+  const progress = () => {
+    clearTimeout(timeout); timeout = setTimeout(()=>controller.abort(),10000);
+  };
+  progress();
+  S.polling = (async()=>{
+    try{
+      const health = await fetch("/api/health", options);
+      if(!health.ok) throw new Error("服务状态 HTTP "+health.status);
+      const h = await health.json(); if(!current()) return;
+      progress();
+      if(h.app!=="codex-trace-viewer" || h.protocol!==1 || h.thread_id!==scope || typeof h.instance_id!=="string")
+        throw new Error("服务与本会话绑定不一致，请重新打开轨迹面板");
+      const listing = await fetch("/api/sessions?limit=0", options);
+      if(!listing.ok) throw new Error("会话读取 HTTP "+listing.status);
+      const j = await listing.json(); if(!current()) return;
+      progress();
+      if(j.bound_thread!==scope || !Array.isArray(j.items) || j.items.length>1
+        || j.items.some(s=>s.thread_id!==scope || typeof s.revision!=="string" || !s.revision))
+        throw new Error("轨迹记录与本会话绑定不一致");
+      if(!j.items.length){
+        scopedStatus(S.parsed? "等待本会话记录恢复；保留上次快照" : "等待本会话写入轨迹记录…");
+        if(!S.parsed) $("#stream").innerHTML = '<div class="empty">等待本会话的轨迹记录。首次保存后会自动载入。</div>';
+        return;
+      }
+      const s = j.items[0];
+      if(!S.current || s.path!==S.current.path || s.revision!==S.current.revision){
+        const P = await loadParsed(s, token, controller.signal, progress); if(!current()) return;
+        if(!P.meta || P.meta.id!==scope) throw new Error("轨迹正文与本会话绑定不一致或尚未完整写入");
+        setSessions([s]); applySessionSnapshot(s, P, !!S.parsed);
+      }
+      scopedStatus("实时更新 · 每 2 秒检查本会话记录");
+    }catch(e){
+      if(!current()) return;
+      const message = e.name==="AbortError"? "读取超时（连续 10 秒无响应或读取进展）" : e.message;
+      scopedStatus("更新失败："+message+"。点击重试；服务停止时请重新运行启动入口。"+(S.parsed? " 保留上次快照。" : ""), true);
+      if(!S.parsed) $("#stream").innerHTML = '<div class="empty">无法读取会话轨迹。请启动本会话服务，再点击右上「重试」。</div>';
+    }
+  })().finally(()=>{ clearTimeout(timeout); S.polling = null; if(S.pollAbort===controller) S.pollAbort=null; });
+  return S.polling;
+}
+
+/* ---------------- 渲染：左侧列表 ---------------- */
+/* ---------------- 渲染：左侧列表（对话树，非文件平铺） ---------------- */
+
+/* 排序主键：**最后一条用户消息的发送时间**（服务端反向扫尾得到 last_user_ts，epoch 秒）。
+   依次回退：Codex 索引 updated_at（注意它可能停在会话创建时刻，不可靠）→ 文件 mtime。
+   统一转成毫秒数值再比较，避免字符串字典序在时区/精度不一致时给出错误顺序。 */
+function actTime(s){
+  const l = s && s.last_user_ts;
+  if(typeof l === "number" && l > 0) return l * 1000;          // ① 最后一条用户消息
+  const u = s && s.updated_at;
+  if(u){ const t = Date.parse(u); if(!isNaN(t)) return t; }    // ② Codex 索引 updated_at
+  return ((s && s.mtime) || 0) * 1000;                         // ③ 文件写入时间
+}
+function byActivity(a, b){ return actTime(b) - actTime(a); }
+
+/* 本地时区格式化；actLabel 展示的就是排序用的那个时间，两者永远同源。 */
+function tsLabel(ms){
+  const d = new Date(ms);
+  if(isNaN(d.getTime())) return "";
+  const p = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function actLabel(s){ return tsLabel(actTime(s)); }
+
+function buildTree(list){
+  const byId = new Map();
+  for(const s of list) if(s.thread_id) byId.set(s.thread_id, s);
+  for(const s of list){ s._kids = []; s._parent = null; }
+  for(const s of list){
+    const p = s.parent_thread_id ? byId.get(s.parent_thread_id) : null;
+    if(p && p !== s){ s._parent = p; p._kids.push(s); }
+  }
+  const roots = [];
+  for(const s of list){
+    let n = s, guard = 0;
+    while(n._parent && guard++ < 64) n = n._parent;
+    if(n === s){ roots.push(s); }
+    else if(guard >= 64){
+      if(s._parent){ const k = s._parent._kids.indexOf(s); if(k >= 0) s._parent._kids.splice(k, 1); }
+      s._parent = null; roots.push(s);
+    }
+  }
+  const sortDeep = arr => { arr.sort(byActivity); for(const x of arr) sortDeep(x._kids); };
+  sortDeep(roots);
+  return roots;
+}
+function countKids(s){ let n = s._kids ? s._kids.length : 0; if(s._kids) for(const k of s._kids) n += countKids(k); return n; }
+function isChild(s){ return !!s._parent || (!!s.context_kind && s.context_kind!=="user"); }
+
+const RECENT_N = 20;
+function convTitle(s){
+  const t = (s.title || "").trim();
+  if(t) return t;
+  const p = (s.preview || "").replace(/\s+/g," ").trim();
+  return p ? p.slice(0, 42) : s.name;
+}
+function buildRows(){
+  if(S.scope){ S.rows=[]; return; }
+  const q = $("#q").value.trim().toLowerCase();
+  S.rows = [];
+  if(q){
+    S.sessions.forEach(s=>{
+      if(s._searchText.includes(q)) S.rows.push({type:"sess", s, depth:0, kid:isChild(s), searching:true});
+    });
+    return;
+  }
+  const roots = S.tree;                       // 已按「最后一条用户消息时间」倒序（回退 updated_at → mtime）
+  /* 侧栏只列主对话（=根会话）。子线程不展开、也不再有「显示全部线程」开关；
+     它们的数量仍以「N 子线程」chip 展示，要单独看某个子线程可在搜索框里搜。 */
+  const addConv = (r, depth) => {
+    S.rows.push({type:"sess", s:r, depth, kid:false});
+  };
+
+  /* 项目（与 Codex 侧栏一致：项目在上）。
+     服务端模式用 Codex 的显式归属；本地模式读不到归属信息，退回按目录名分组。 */
+  const projOf = r => r.project || (S.mode === "local" ? ((r.cwd||"").split(/[\\/]/).filter(Boolean).pop() || "") : "");
+  const byProj = new Map();
+  for(const r of roots){
+    const k = projOf(r);
+    if(!byProj.has(k)) byProj.set(k, []);
+    byProj.get(k).push(r);
+  }
+  /* 项目段的排序规则与「最近」不同：按**项目创建时间**倒序（最后创建的项目在最前），
+     组内对话仍按「最后一条用户消息时间」排（byProj 的桶是在已排序的 roots 上填的）。
+     创建时间取自 Codex 的 local-projects.createdAt（毫秒）；拿不到时（本地模式）退回旧规则。 */
+  const projCreated = new Map();
+  for(const r of roots){
+    if(!r.project_created_at) continue;
+    const k = projOf(r);
+    if(!projCreated.has(k) || r.project_created_at > projCreated.get(k)) projCreated.set(k, r.project_created_at);
+  }
+  const named = [...byProj.keys()].filter(Boolean).sort((a,b) => {
+    const ca = projCreated.get(a) || 0, cb = projCreated.get(b) || 0;
+    if(ca || cb) return (cb - ca) || a.localeCompare(b, "zh");   // 新的在前
+    return byProj.get(b).length - byProj.get(a).length || a.localeCompare(b, "zh");
+  });
+  S.rows.push({type:"sec", label:"项目", key:"__proj"});
+  if(!S.collapsed.has("__proj")){
+    for(const p of named){
+      const key = "p:" + p;
+      S.rows.push({type:"proj", label:p, count:byProj.get(p).length, key});
+      if(!S.collapsed.has(key)) byProj.get(p).forEach(r => addConv(r, 1));
+    }
+    if(byProj.has("")){
+      const key = "p:";
+      S.rows.push({type:"proj", label:"未归入项目", count:byProj.get("").length, key});
+      if(!S.collapsed.has(key)) byProj.get("").forEach(r => addConv(r, 1));
+    }
+  }
+
+  /* 最近：统一按排序主键（最后一条用户消息时间，缺省 updated_at / mtime）倒序，见 byActivity()。
+     只收「Codex 索引过的对话」——索引里没有的多是 `codex mcp login`、内部提示词之类
+     的系统会话（如 "You are a branch name generator"），不该混进最近。
+     注：Codex 客户端侧栏的「最近」顺序是它自己的打开历史，磁盘上没有任何文件暴露，
+     这里只能做到「集合一致 + 用 Codex 自己的活动时间排序」。 */
+  const recents = roots.filter(r => r.title); // roots 已排序，过滤保留顺序
+  S.rows.push({type:"sec", label:"最近", key:"__recent"});
+  if(!S.collapsed.has("__recent")){
+    const list = S.recentAll ? recents : recents.slice(0, RECENT_N);
+    list.forEach(r => addConv(r, 0));
+    if(!S.recentAll && recents.length > RECENT_N)
+      S.rows.push({type:"more", label:`查看全部 ${recents.length} 条对话`, key:"recentAll"});
+  }
+}
+
+function sessRow(s, i, depth, kid){
+  const st = s.stats||{};
+  const sel = S.current && S.current.path===s.path ? " sel":"";
+  const allKids = countKids(s);
+  /* 会话行不做展开：不再渲染箭头。子线程只在顶部「显示全部线程」时平铺列出，
+     因此所有行的标题左边缘天然对齐（之前靠隐形占位解决的问题不复存在）。 */
+  const tsrc = s.thread_source && s.thread_source!=="user" ? s.thread_source : (s.context_kind||"");
+  const tips = [];
+  if(s.date) tips.push(`创建 ${dayLabel(s.date)} ${s.clock||""}`);
+  if(typeof s.last_user_ts === "number" && s.last_user_ts > 0) tips.push(`最后用户输入 ${tsLabel(s.last_user_ts*1000)}`);
+  if(s.updated_at){ const t = Date.parse(s.updated_at); if(!isNaN(t)) tips.push(`Codex 索引 ${tsLabel(t)}`); }
+  if(s.mtime) tips.push(`文件写入 ${tsLabel(s.mtime*1000)}`);
+  const tip = tips.join(" · ");
+  const meta = [
+    actLabel(s),
+    kid ? (tsrc || "") : "",
+    kid && s.agent ? s.agent : "",
+    st.turns!=null ? `${st.turns} 轮` : "",
+    st.tools!=null ? `${st.tools} 工具` : "",
+    s.archived ? "归档" : ""
+  ].filter(Boolean).join(" · ");
+  return `<div class="sess${sel}${kid?" kid":""}" data-i="${i}" style="padding-left:${10+depth*13}px">
+    <div class="r1"><span class="ttl">${esc(convTitle(s))}</span>
+      <span class="spacer" style="flex:1"></span>${allKids? `<span class="chip">${allKids} 子线程</span>`:""}</div>
+    <div class="r2" title="${esc(tip)}">${esc(meta)}</div>
+  </div>`;
+}
+
+function toggleCollapsed(k){
+  if(S.collapsed.has(k)) S.collapsed.delete(k); else S.collapsed.add(k);
+  saveCollapsed();
+  renderList();
+}
+function renderList(){
+  if(S.scope) return;
+  buildRows();
+  const box = $("#slist");
+  updateCounts();
+  if(!S.rows.length){
+    box.innerHTML = S.sessions.length ? '<div class="empty">没有匹配的会话</div>'
+      : (S.mode==="server" ? '<div class="empty">没有找到 rollout 文件</div>'
+        : '<div class="empty">点击右上「选择 sessions 目录」，<br>选中当前系统的 Codex sessions 目录即可载入</div>');
+    return;
+  }
+  box.innerHTML = S.rows.map((r,i)=>{
+    if(r.type === "sec") return `<div class="sect" data-sec="${esc(r.key)}">${esc(r.label)}<span class="spacer" style="flex:1"></span><span class="tg" data-sec="${esc(r.key)}">${S.collapsed.has(r.key)?"▸":"▾"}</span></div>`;
+    if(r.type === "more") return `<div class="moreN" data-more="${esc(r.key)}">${esc(r.label)}</div>`;
+    /* 项目行：不再显示左侧折叠箭头（点整行仍可折叠），文件夹图标放大到 14px */
+    if(r.type === "proj") return `<div class="proj" data-proj="${esc(r.key)}" title="点击折叠/展开该项目">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="flex:0 0 auto"><path d="M1.5 4.5A1.5 1.5 0 013 3h3l1.2 1.6H13A1.5 1.5 0 0114.5 6v5A1.5 1.5 0 0113 12.5H3A1.5 1.5 0 011.5 11V4.5z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>
+        <span class="pn">${esc(r.label)}</span><span class="pc">${r.count}</span></div>`;
+    return sessRow(r.s, i, r.depth, r.kid);
+  }).join("");
+}
+
+function updateCounts(){
+  if(S.mode!=="server" && !S.sessions.length) return;
+  const roots = S.tree.length, all = S.sessions.length;
+  const projs = new Set(S.tree.map(r=>r.project).filter(Boolean)).size;
+  const kids = all - roots;
+  $("#count").textContent = roots === all ? `${all} 个会话`
+    : `${roots} 个对话 · ${projs} 个项目 · ${all} 个线程`;
+}
+
+const KINDS = [
+  ["msg","用户"], ["assistant","助手"], ["interact","交互回答"], ["reasoning","推理"], ["tool","工具/命令"],
+  ["file","文件变更"], ["mcp","MCP"], ["search","联网检索"], ["agent","子代理"],
+  ["inject","注入上下文"], ["dev","系统指令"], ["token","token"], ["note","事件"], ["compact","压缩"]
+];
+const KIND_LABEL = {}; KINDS.forEach(([k,l])=>KIND_LABEL[k]=l);
+
+function kindOfStep(st){
+  if(st.kind === "msg") return (st.role === "assistant") ? "assistant" : "msg";
+  return st.kind;
+}
+function isHidden(st){
+  const k = kindOfStep(st);
+  if(st.kind === "msg" && st.role && st.role !== "user" && st.role !== "assistant") return true;
+  return S.hide.has(k);
+}
+function renderFilterBar(){
+  const P = S.parsed, box = $("#filter");
+  if(!P){ box.innerHTML = ""; return; }
+  const cnt = (P.totals && P.totals.kinds) || {};
+  const items = KINDS.filter(([k]) => cnt[k] || k==="compact").map(([k,l])=>{
+    const n = cnt[k] || 0;
+    return `<span class="fchip${S.hide.has(k)?" off":""}" data-kind="${k}" title="点击显示/隐藏 ${l}">${l}<i>${n}</i></span>`;
+  });
+  box.innerHTML = `<span class="flabel">显示</span>${items.join("")}
+    <span class="spacer" style="flex:1"></span>
+    ${S.lazyDetails? '<span class="hint">按轮加载详情 · 切换后释放上一轮</span>' : '<button id="expall">全部展开</button>'}<button id="colall">全部收起</button>`;
+  box.querySelectorAll(".fchip").forEach(el => el.onclick = () => {
+    const k = el.dataset.kind;
+    if(S.hide.has(k)) S.hide.delete(k); else S.hide.add(k);
+    saveHide(); renderFilterBar(); renderStream();
+  });
+  const ea = $("#expall"); if(ea) ea.onclick = () => { S.expanded = new Set(P.turns.map((_,i)=>i)); renderStream(); };
+  const ca = $("#colall"); if(ca) ca.onclick = () => { S.expanded = new Set(); renderStream(); };
+}
+function saveHide(){ try{ localStorage.setItem("ctv.hide", JSON.stringify([...S.hide])); }catch(e){} }
+function saveCollapsed(){ try{ localStorage.setItem("ctv.collapsed", JSON.stringify([...S.collapsed])); }catch(e){} }
+function loadCollapsed(){ try{ const v=JSON.parse(localStorage.getItem("ctv.collapsed")||"null"); if(Array.isArray(v)) return new Set(v); }catch(e){} return new Set(); }
+function loadHide(){ try{ const v = JSON.parse(localStorage.getItem("ctv.hide")||"null"); if(Array.isArray(v)) return new Set(v); }catch(e){} return new Set(DEFAULT_HIDDEN); }
+
+/* ---------------- 渲染：时间轴条 ---------------- */
+function renderTimeline(){
+  const P = S.parsed, box = $("#tl");
+  if(!P || !P.turns.length){ box.innerHTML=""; return; }
+  const max = Math.max(...P.turns.map(t=>t.spanMs||1));
+  box.innerHTML = P.turns.map((t,i)=>{
+    const h = 6 + Math.round(18 * Math.min(1,(t.spanMs||1)/max));
+    const tools = t.steps.filter(s=>s.kind==="tool" && s.callId).length;
+    const col = tools > 12 ? "var(--red)" : tools > 4 ? "var(--amber)" : "var(--blue)";
+    const w = Math.max(4, Math.round(160 * ((t.spanMs||1)/max)));
+    const title = `第 ${i+1} 轮 · 执行耗时 ${elapsed(t.toolMs)} · 对话耗时 ${elapsed(t.spanMs)} · ${tools} 次工具调用`;
+    return `<i data-t="${i}" title="${esc(title)}" style="height:${h}px;width:${w}px;background:${col}"></i>`;
+  }).join("");
+  box.querySelectorAll("i").forEach(el => el.onclick = () => {
+    const i = +el.dataset.t;
+    openTurn(i);
+    const blk = document.querySelector(`.turn[data-t="${i}"]`); if(blk) blk.scrollIntoView({block:"start"});
+  });
+}
+
+/* ---------------- 渲染：会话头 ---------------- */
+function renderSessionBar(){
+  const s = S.current, P = S.parsed, box = $("#sbar");
+  if(!s){ box.innerHTML = '<div class="hint" style="padding-top:6px">未选择会话</div>'; return; }
+  const m = P && P.meta || {};
+  const T = P && P.totals || {};
+  box.innerHTML = `
+    <div class="nm">${esc(s.name)}</div>
+    <div style="display:flex;gap:4px;flex-wrap:wrap">
+      <span class="chip b">${esc(m.model_provider||"")}</span>
+      ${m.cli_version? `<span class="chip">cli ${esc(m.cli_version)}</span>`:""}
+      ${m.git && m.git.branch? `<span class="chip">${esc(m.git.branch)}${m.git.commit_hash?"@"+esc(String(m.git.commit_hash).slice(0,8)):""}</span>`:""}
+      ${s.session_id? `<span class="chip">${esc(shortId(s.session_id))}</span>`:""}
+      <span class="chip">${esc(dayLabel(s.date))} ${esc(s.clock||"")}</span>
+    </div>
+    <div class="hint" style="margin-top:4px;font-family:var(--mono);word-break:break-all">${esc(m.cwd||s.cwd||"")}</div>
+    ${T.turns? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px">
+      <span class="chip">${T.turns} 轮</span>
+      <span class="chip a">${T.tools} 次工具调用</span>
+      <span class="chip">${T.commands} 条命令执行记录</span>
+      <span class="chip" title="各轮已记录 duration 的执行项耗时之和；每轮累计到毫秒后相加，含并行或嵌套耗时">执行耗时 ${elapsed(T.toolMs)}</span>
+      <span class="chip" title="各轮对话耗时之和；每轮取步骤及关联返回记录的首尾时间差，包含未完成轮，不计轮间空档">对话耗时 ${elapsed(T.durMs)}</span>
+      <span class="chip g">${num(T.tokens)} tokens</span>
+      ${T.ttft!=null? `<span class="chip p">平均 TTFT ${dur(T.ttft)}</span>`:""}
+      <span class="chip">${num(T.recs)} 条记录</span>
+    </div>`:""}
+    ${S.crossed? `<div class="warn">文件较大，已按「头部 + 尾部」切片载入，中段记录未包含。</div>`:""}`;
+}
+
+/* ---------------- 渲染：中栏步骤流 ---------------- */
+function stepHtml(st, idx, ti){
+  const k = st.kind;
+  const time = st.ts ? clockOf(st.ts) : "";
+  const meta = st.ts ? `<span>${esc(stampOf(st.ts))}</span>` : "";
+  let label = "记录", cls = "", body = "";
+
+  if(k === "msg"){
+    const role = st.role || "?";
+    label = role === "user" ? "用户" : role === "assistant" ? "助手" : role;
+    cls = "k-" + (role === "user" ? "user" : role === "assistant" ? "assistant" : "developer");
+    const long = st.text.length > 900;
+    const total = st.full || st.text.length;
+    body = `<div class="tx${long?" clip":""}" data-more="${idx}">${esc(st.text)}</div>` + (long? `<div class="more" data-more="${idx}">展开全部 (${num(total)} 字)</div>`:"");
+  } else if(k === "interact"){
+    label = "交互回答"; cls = "k-interact";
+    const it = (st.act && st.act.items) || [];
+    if(it.length){
+      body = it.map(x => `<div class="qa">
+        <div class="q"><span class="qt">问</span>${esc(x.q)}</div>
+        <div class="a"><span class="qt">答</span>${esc(x.a)}</div></div>`).join("");
+    } else {
+      body = `<div class="tx">${esc((st.act && st.act.raw) || stripEnvelope(st.text))}</div>`;
+    }
+  } else if(k === "inject" || k === "dev"){
+    label = k === "inject" ? "注入" : "系统指令";
+    cls = "k-inject";
+    const inner = stripEnvelope(st.text);
+    const long = inner.length > 600;
+    body = `<div class="hd"><span class="chip a">${esc(st.src||"")}</span><span>${num(st.full||inner.length)} 字符</span></div>`
+         + (long ? `<div class="hint">${esc(inner.slice(0,150).replace(/\s+/g," "))}…</div>` : `<div class="tx">${esc(inner)}</div>`)
+         + (long ? `<div class="more" data-more="${idx}">展开全部</div>` : "");
+  } else if(k === "reasoning"){
+    label = "推理";
+    cls = "k-reasoning";
+    if(st.summary){
+      const long = st.summary.length > 700;
+      body = `<div class="tx${long?" clip":""}" data-more="${idx}">${esc(st.summary)}</div>` + (long? `<div class="more" data-more="${idx}">展开全部</div>`:"");
+    } else {
+      body = `<div class="hint">推理摘要为空（模型输出已被加密，本地只保留占位与摘要）</div>
+              <div class="hint">encrypted_content: ${num(st.enc)} 字符</div>`;
+    }
+  } else if(k === "tool"){
+    const v = toolView(st);
+    label = st.origin==="event" ? "命令执行" : "工具调用";
+    cls = "k-tool";
+    const okBadge = v.exitCode==null ? "" : (v.exitCode===0? `<span class="chip g">exit 0</span>` : `<span class="chip r">exit ${v.exitCode}</span>`);
+    body = `<div class="hd"><b>${esc(st.tool||"tool")}</b>${st.ns?`<span class="chip">${esc(st.ns)}</span>`:""}
+        ${v.secs!=null? `<span class="chip">耗时 ${secTxt(v.secs)}</span>`:""}
+        <span class="chip ${v.status==="failed"?"r":""}">${esc(v.status)}</span>
+        ${okBadge}${v.kind?`<span class="chip">${esc(v.kind)}</span>`:""}</div>`;
+    if(v.cmd) body += `<pre class="${v.cmd.length>300?"clip":""}" data-more="${idx}">$ ${esc(v.cmd)}</pre>` + (v.cmd.length>300?`<div class="more" data-more="${idx}">展开命令</div>`:"");
+    else if(st.args) body += `<pre class="clip" data-more="${idx}">${esc(typeof st.args==="string" ? st.args : JSON.stringify(st.args,null,1))}</pre>`;
+    if(v.workdir) body += `<div class="hint" style="font-family:var(--mono)">cwd ${esc(v.workdir)}</div>`;
+    const output = st.out || (st.result && st.result.item.aggregated_output) || "";
+    if(output){
+      const long = output.length > 800;
+      body += `<pre class="${long?"clip":""}" data-more="${idx}">${esc(output)}</pre>`;
+      if(long) body += `<div class="more" data-more="${idx}">展开输出 (${num(output.length)} 字符)</div>`;
+    }
+  } else if(k === "toolout"){
+    label = "工具输出"; cls = "k-tool";
+    const long = st.text.length > 800;
+    body = `<div class="hd"><span>未匹配到调用的输出</span></div><pre class="${long?"clip":""}" data-more="${idx}">${esc(st.text.slice(0, long?800:st.text.length))}</pre>`;
+  } else if(k === "token"){
+    label = "token"; cls = "k-token";
+    /* 上下文占用 = 最近一次请求的 token（last_token_usage），不是线程累计 */
+    const ctxUsed = st.last && st.last.total_tokens, cw = st.cw;
+    const p = (ctxUsed && cw) ? pct(ctxUsed, cw) : null;
+    body = `<div class="hd"><span>上下文 ${num(ctxUsed)} / ${cw?num(cw):"?"}</span>
+      ${p!=null? `<span class="chip ${p>90?"r":p>70?"a":""}">占用 ${p.toFixed(1)}%</span>`:""}
+      <span class="chip">本次入 ${num(st.last&&st.last.input_tokens)} / 出 ${num(st.last&&st.last.output_tokens)}</span>
+      <span class="chip">线程累计 ${num(st.total&&st.total.total_tokens)}</span></div>`;
+  } else if(k === "file"){
+    label = "文件变更"; cls = "k-file";
+    const t2 = st.files||[];
+    body = `<div class="hd"><b>${t2.length} 个文件</b>${st.status? `<span class="chip">${esc(st.status)}</span>`:""}</div>`
+      + t2.slice(0,12).map(f => `<div class="hint" style="font-family:var(--mono)">${esc(f.type||"edit")} · ${esc(f.path.split(/[\\/]/).slice(-3).join("/"))}${f.len? "  ("+num(f.len)+" 字符)":""}</div>`).join("")
+      + (t2.length>12? `<div class="hint">…还有 ${t2.length-12} 个</div>`:"");
+  } else if(k === "mcp"){
+    const v = toolView(st), it = st.result && st.result.item;
+    label = "MCP 调用"; cls = "k-tool";
+    body = `<div class="hd"><b>${esc(st.server)}${st.tool? "."+esc(st.tool):""}</b>
+      ${v.secs!=null? `<span class="chip">耗时 ${secTxt(v.secs)}</span>`:""}
+      <span class="chip ${v.status==="failed"?"r":""}">${esc(v.status)}</span></div>`;
+    if(st.args) body += `<pre class="clip" data-more="${idx}">${esc(JSON.stringify(st.args,null,1))}</pre>`;
+    if(it && it.result) body += `<pre class="clip" data-more="${idx}">${esc(JSON.stringify(it.result,null,1))}</pre>`;
+  } else if(k === "search"){
+    label = "联网检索"; cls = "k-note";
+    body = `<div class="hd"><b>${esc(st.query)}</b><span class="chip">${(st.results||[]).length} 条结果</span></div>`
+      + (st.results||[]).map(r => `<div class="hint">· <a href="${esc(r.url)}" target="_blank" rel="noreferrer" style="color:var(--blue)">${esc(r.title||r.url)}</a></div>`).join("");
+  } else if(k === "note"){
+    return `<div class="divider" data-step="${idx}" data-turn="${ti}">${esc(st.label)}</div>`;
+  } else if(k === "compact"){
+    return `<div class="divider" data-step="${idx}" data-turn="${ti}">上下文压缩 · 窗口 #${esc(st.win)} · ${esc(st.ts?stampOf(st.ts):"")}</div>`;
+  } else if(k === "agent"){
+    label = "子代理"; cls = "k-agent";
+    body = `<div class="hd"><span>${esc(st.author)} → ${esc(st.recipient)}</span></div><div class="tx">${esc(st.text.slice(0,1200))}</div>`;
+  } else {
+    label = st.sub || "记录"; cls = "k-note";
+    body = `<div class="hd"><span>${esc(st.sub||"")}</span></div>`;
+  }
+  if(S.truncMap.get(ti+":"+idx))
+    body = body.replace(/class="([^"]*)"/g, (_,classes)=>'class="'+classes.replace(/\bclip\b/g, "")+'"')
+      .replace(/(<div class="more"[^>]*>)[\s\S]*?(<\/div>)/g, "$1收起$2");
+
+  return `<div class="step ${cls}${S.sel && S.sel.idx===idx && S.sel.ti===ti ? " sel":""}" data-step="${idx}" data-turn="${ti}">
+    <div class="k"><b>${esc(label)}</b><div style="font-size:10px">${esc(time)}</div></div>
+    <div class="c">${body}</div></div>`;
+}
+
+function renderStream(preserveScroll=false){
+  const P = S.parsed, box = $("#stream");
+  if(!P){ box.innerHTML = '<div class="empty">左侧选择一个会话</div>'; return; }
+  if(!P.turns.length){ box.innerHTML = '<div class="empty">该文件没有解析到轮次记录</div>'; return; }
+  box.innerHTML = P.turns.map((t,i)=>{
+    const open = S.expanded.has(i);
+    const tools = t.steps.filter(s=>s.kind==="tool" && s.callId).length;
+    const u = usageOfTurn(t);
+    const {used,cw} = turnMetrics(t);
+    const cp = used!=null && cw>0? pct(used,cw) : null;
+    const head = `<div class="turn-h" data-h="${i}">
+      <span class="no">第 ${i+1} 轮</span>
+      ${t.ghost? `<span class="chip">无 turn_context</span>`:""}
+      ${t.ctx && t.ctx.model? `<span class="chip b">${esc(t.ctx.model)}</span>`:""}
+      ${t.ctx && t.ctx.effort? `<span class="chip p">effort ${esc(t.ctx.effort)}</span>`:""}
+      ${t.ctx && t.ctx.approval_policy? `<span class="chip">${esc(t.ctx.approval_policy)}</span>`:""}
+      ${t.collab && t.collab!=="default"? `<span class="chip">${esc(t.collab)}</span>`:""}
+      <span class="chip" title="本展示段已记录 duration 的执行项耗时之和，累计到毫秒">执行耗时 ${elapsed(t.toolMs)}</span>
+      <span class="chip" title="本展示段步骤及关联返回记录的首尾时间差；无有效时间戳时为 —">对话耗时 ${elapsed(t.spanMs)}</span>
+      ${t.ttftMs? `<span class="chip">TTFT ${dur(t.ttftMs)}</span>`:""}
+      ${u && typeof u.output_tokens==="number" && Number.isFinite(u.output_tokens)? `<span class="chip g">${num(u.output_tokens)} out</span>`:""}
+      ${cp!=null? `<span class="chip ${cp>90?"r":cp>70?"a":""}">上下文 ${cp.toFixed(0)}%</span>`:""}
+      ${tools? `<span class="chip a">${tools} 工具</span>`:""}
+      <span class="spacer" style="flex:1"></span>
+      <span class="hint">${open?"收起":"展开"}</span></div>`;
+    let body = "";
+    if(open && S.lazyDetails && S.lazyDetails.loadedIndex!==i){
+      body = `<div class="turn-b hint" style="padding:12px">${S.lazyDetails.loadingIndex===i? '正在载入本轮详情…' : '本轮详情未载入；点击轮次重试。'}</div>`;
+    } else if(open){
+      const pairs = t.steps.map((s,j)=>({s,j})).filter(x => !isHidden(x.s));
+      const hiddenN = t.steps.length - pairs.length;
+      body = `<div class="turn-b">${hiddenN? `<div class="hint" style="padding:4px 10px">已隐藏 ${hiddenN} 条（通过顶部「显示」筛选）</div>`:""}${pairs.map(x=>stepHtml(x.s, x.j, i)).join("")}</div>`;
+    }
+    return `<div class="turn" data-t="${i}">${head}${body}</div>`;
+  }).join("");
+
+  box.querySelectorAll(".turn-h").forEach(el => el.onclick = () => {
+    const i = +el.dataset.h;
+    if(S.lazyDetails && S.lazyDetails.loadedIndex!==i && S.lazyDetails.loadingIndex!==i) openTurn(i);
+    else if(S.expanded.has(i)){ S.expanded.delete(i); renderStream(); setSelTurn(i); }
+    else openTurn(i);
+  });
+  box.querySelectorAll(".step").forEach(el => el.onclick = (ev) => {
+    if(ev.target.classList.contains("more")) return;
+    selectStep(+el.dataset.turn, +el.dataset.step);
+  });
+  box.querySelectorAll(".more").forEach(el => el.onclick = (ev) => {
+    ev.stopPropagation();
+    const ti = +el.closest(".step").dataset.turn, idx = +el.dataset.more;
+    const key = ti+":"+idx; S.truncMap.set(key, !S.truncMap.get(key));
+    const holder = el.closest(".c");
+    holder.querySelectorAll(".tx,.step pre,pre").forEach(n => n.classList.toggle("clip"));
+    el.textContent = S.truncMap.get(key) ? "收起" : "展开全部";
+  });
+  box.querySelectorAll(".divider").forEach(el => el.onclick = () => selectStep(+el.dataset.turn, +el.dataset.step));
+  const sel = box.querySelector(".step.sel"); if(sel && !preserveScroll) sel.scrollIntoView({block:"nearest"});
+}
+
+/* ---------------- 右栏 ---------------- */
+const TABS = [["overview","概览"],["model","模型与环境"],["request","用量"],["perf","计时"],["raw","原始记录"]];
+/* 选中「工具调用」步骤时，右栏切换成这五个页签（对齐 DeepSeek Harness 的轨迹面板） */
+const TOOL_TABS = [["t_overview","概述"],["t_args","参数"],["t_result","结果"],["t_schema","Schema"],["t_time","计时"]];
+const USER_TABS = [["m_message","消息"],["m_context","上下文"],["m_raw","原始记录"]];
+const ASSISTANT_TABS = [["m_message","消息"],["m_generation","生成信息"],["m_context","上下文"],["m_raw","原始记录"]];
+
+function selectedStep(){
+  const P = S.parsed;
+  if(!P || !S.sel) return null;
+  const t = P.turns[S.sel.ti];
+  return (t && t.steps[S.sel.idx]) || null;
+}
+function tabsFor(){
+  const st = selectedStep();
+  if(st && ((st.kind==="msg" && (st.role==="user" || st.role==="assistant")) || st.kind==="interact"))
+    return st.role==="assistant" ? ASSISTANT_TABS : USER_TABS;
+  return (st && (st.kind === "tool" || st.kind === "mcp")) ? TOOL_TABS : TABS;
+}
+function renderTabs(){
+  const tabs = tabsFor();
+  /* 选中对象变化后，原页签可能不存在于当前页签集（如从工具步骤切到普通步骤），回到第一个 */
+  if(!tabs.some(([k]) => k === S.tab)) S.tab = tabs[0][0];
+  $("#tabs").innerHTML = tabs.map(([k,l]) => `<button data-tab="${k}" class="${S.tab===k?"on":""}">${l}</button>`).join("");
+  $("#tabs").querySelectorAll("button").forEach(b => b.onclick = () => { S.tab = b.dataset.tab; renderTabs(); renderInsp(); });
+}
+function kv(pairs){
+  return `<dl class="kv">${pairs.filter(x=>x&&x[1]!=null&&x[1]!=="").map(([k,v])=>`<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>`;
+}
+function jsonBlock(o){ return `<pre class="json">${esc(JSON.stringify(o, null, 2))}</pre>`; }
+function contextOfTurn(t){
+  return [...(t.steps||[])].reverse().find(s=>s.context)?.context || (t.ghost? null : t.ctx);
+}
+
+function turnMetrics(t){
+  const lastTok = [...t.tokenSteps].reverse().find(s=>typeof s.last?.total_tokens==="number" && Number.isFinite(s.last.total_tokens) && s.last.total_tokens>=0);
+  const used = lastTok && lastTok.last ? lastTok.last.total_tokens : null;
+  const cw = lastTok ? lastTok.cw : t.ctxWindow;
+  const tools = t.steps.filter(s=>(s.kind==="tool" || s.kind==="mcp") && s.callId).length;
+  return {used, cw, lastToken:lastTok, context:contextOfTurn(t), toolMs:t.toolMs, tools};
+}
+
+function renderUsage(t){
+  const u = usageOfTurn(t) || {}, valid = x=>typeof x==="number" && Number.isFinite(x) && x>=0;
+  const cacheValid = !t.cacheIssue && valid(u.input_tokens) && valid(u.cached_input_tokens) && u.cached_input_tokens<=u.input_tokens;
+  // https://developers.openai.com/api/docs/guides/prompt-caching : cached/input，按 token 加权。
+  const hit = cacheValid && u.input_tokens>0 ? u.cached_input_tokens/u.input_tokens*100 : null;
+  const pairs = [["输入 token",u.input_tokens], ["未缓存输入",cacheValid?u.input_tokens-u.cached_input_tokens:null],
+    ["缓存输入（读取）",u.cached_input_tokens], ["输出 token",u.output_tokens],
+    ["其中推理 token",u.reasoning_output_tokens], ["合计 token",u.total_tokens]];
+  const recorded = pairs.some(x=>valid(x[1]));
+  const scope = t.requestCount? `${t.requestCount} 次请求的已记录用量相加；只统计本轮记录。`
+    : t.usage? "原始 turn 累计；该轮没有拆段。" : recorded? "仅有本轮最近请求的快照，无法还原本轮完整累计。" : "未记录可归属于本轮的独立请求用量。";
+  let html = `<div class="sec"><h4>${t.usage || !recorded? "本轮用量" : "最近模型请求"} · 第 ${S.parsed.turns.indexOf(t)+1} 轮</h4><div class="hint">${scope}</div>
+    ${pairs.some(x=>valid(x[1]))? kv(pairs.filter(x=>valid(x[1])).map(([k,v])=>[k,num(v)])) : '<div class="hint">本轮未记录独立用量。</div>'}
+    ${hit==null? "" : kv([["缓存命中率",hit.toFixed(1)+"%"]])+`<div class="bar" title="缓存命中率"><i style="width:${hit.toFixed(1)}%;background:var(--green)"></i></div>`}
+    ${cacheValid? '<div class="hint">缓存输入与缓存读取是同一指标，不重复计入合计。</div>' : ""}
+    ${t.cacheIssue || (valid(u.input_tokens) && valid(u.cached_input_tokens) && !cacheValid)? '<div class="hint">存在缓存输入超过总输入的记录，无法计算命中率与未缓存输入。</div>' : ""}
+    ${valid(u.cache_write_input_tokens) && u.cache_write_input_tokens>0? kv([["缓存写入",num(u.cache_write_input_tokens)]])+ '<div class="hint">缓存写入已包含在未缓存输入中。</div>' : ""}</div>`;
+  const m = turnMetrics(t), p = m.used!=null && valid(m.cw) && m.cw>0? m.used/m.cw*100 : null;
+  if(m.used!=null) html += `<div class="sec"><h4>本轮最近记录的上下文占用</h4>
+    ${p!=null? `<div class="bar"><i style="width:${Math.min(100,p).toFixed(1)}%"></i></div>
+    <div class="hint">${num(m.used)} / ${num(m.cw)} tokens（${p.toFixed(1)}%）</div>
+    ${m.used<=m.cw? kv([["剩余窗口",num(m.cw-m.used)+" tokens"]]) : ""}` : kv([["上下文 token",num(m.used)]])}
+    <div class="hint">记录时间：${esc(stampOf(m.lastToken.ts))}。未提供系统提示词、工具定义、消息等分项 token。</div>
+    <details><summary>上下文用量原始记录</summary>${jsonBlock({timestamp:m.lastToken.ts,last_token_usage:m.lastToken.last,model_context_window:m.lastToken.cw})}</details></div>`;
+  if(t.requestCount) html += `<details class="sec"><summary>本轮请求用量记录（${t.requestCount}）</summary>${jsonBlock(t.usageRecords.filter(r=>r.payload.usage).map(r=>({
+    timestamp:r.raw.timestamp,turn_id:r.payload.turn_id,response_id:r.payload.response_id,usage:r.payload.usage
+  })))}</details>`;
+  return html;
+}
+
+function renderMessageInsp(box, st, t){
+  const p = (st.raw && st.raw.payload) || {}, meta = p.internal_chat_message_metadata_passthrough || {};
+  const blocks = messageBlocks(p), c = st.context, assistant = st.role==="assistant";
+  const collab = c && c.collaboration_mode && c.collaboration_mode.mode;
+  const fullText = blocks.content.map(x=>typeof x==="string" ? x : x && typeof x.text==="string" ? x.text : "").filter(Boolean).join("\n");
+  const request = !assistant && /^\s*# Files (mentioned|pasted) by the user:/.test(fullText)
+    ? /^## My request:[ \t]*\r?\n([\s\S]*)/m.exec(fullText) : null;
+  const text = request ? request[1].replace(/(?:\s*<image name=[^>]+>\s*<\/image>)+\s*$/, "").trim() : fullText;
+  const phase = p.phase || p.channel || "";
+  const title = assistant ? (phase==="commentary" ? "助手 · 进度说明" : phase==="final_answer" || phase==="final" ? "助手 · 最终回答" : "助手消息")
+    : st.kind==="interact" ? "用户 · 交互回答" : "用户消息";
+  const sec = (title, body) => `<div class="sec"><h4>${esc(title)}</h4>${body}</div>`;
+  let html = "";
+  if(S.tab === "m_raw") html = jsonBlock(st.raw);
+  else if(S.tab === "m_context"){
+    html = c ? sec("关联的本轮配置", kv([
+      ["模型", esc(c.model||"")], ["推理强度", esc(c.effort||"")],
+      ["推理摘要", esc(c.summary||"")], ["人格", esc(c.personality||"")],
+      ["协作模式", collab==="default"? "" : esc(collab||"")]
+    ]) + `<div class="hint">来源：与此条消息关联的 turn_context；不使用会话最后一次线程设置。</div>`)
+      : `<div class="warn">未记录关联的 turn_context，无法确认此条消息的历史模型与执行环境。</div>`;
+    if(c) html += `<details class="sec"><summary>执行环境</summary>${kv([
+      ["工作目录", esc(c.cwd||"")], ["沙箱", esc(c.sandbox_policy&&c.sandbox_policy.type||"")],
+      ["网络访问", c.sandbox_policy && typeof c.sandbox_policy.network_access==="boolean" ? (c.sandbox_policy.network_access?"开启":"关闭") : ""],
+      ["审批策略", esc(c.approval_policy||"")], ["审批审核", esc(c.approvals_reviewer||"")],
+      ["权限档", esc(c.active_permission_profile&&c.active_permission_profile.id||"")],
+      ["时区", esc(c.timezone||"")]
+    ])}</details><details class="sec"><summary>上下文原始记录</summary>${jsonBlock(c)}</details>`;
+    if(blocks.context.length) html += `<details class="sec"><summary>随消息附加的上下文（${blocks.context.length} 块）</summary>
+      <div class="hint">环境、指令等附加内容，与用户正文分开展示。</div>${jsonBlock(blocks.context)}</details>`;
+  } else if(S.tab === "m_generation"){
+    const source = t.sourceTurn || t;
+    const times = [["任务记录耗时（turn 级）",source.durationMs], ["首 token 延迟",source.ttftMs]];
+    html = sec("原始任务计时", `<div class="hint">未记录单条消息的 token 或生成耗时。计时属于所在 turn，包含多条消息与工具活动。</div>`
+      + (t.parts? `<div class="hint">这 ${t.parts} 段共用同一个 turn 的任务计时；用量按展示轮独立统计。</div>`: "")
+      + (times.every(x=>x[1]==null)? `<div class="hint">本轮未记录计时数据。</div>`: "")
+      + kv(times.filter(x=>typeof x[1]==="number" && Number.isFinite(x[1])).map(([k,v])=>[k,dur(v)]))) + renderUsage(t);
+  } else {
+    const created = typeof meta.create_time==="number" && Number.isFinite(meta.create_time) ? new Date(meta.create_time*1000) : null;
+    const createdStamp = created && !isNaN(created.getTime()) ? stampOf(created.toISOString()) : "";
+    const labels = new Map([["input_image","图片"],["image","图片"],["input_file","文件"],["file","文件"],["input_audio","音频"],["audio","音频"]]);
+    const counts = new Map();
+    for(const b of blocks.content){
+      if(!b || typeof b!=="object" || typeof b.text==="string") continue;
+      const kind = typeof b.type==="string" && b.type ? b.type : "其他内容块", label = labels.get(kind) || kind;
+      counts.set(label, (counts.get(label)||0)+1);
+    }
+    html = sec(title, kv([
+      [createdStamp?"创建时间":"记录时间", esc(createdStamp||stampOf(st.ts))],
+      ["所在轮次", "第 "+(S.sel.ti+1)+" 轮"],
+      ["本轮模型", assistant ? esc(c&&c.model||"未记录") : ""],
+      ["推理强度", assistant ? esc(c&&c.effort||"") : ""],
+      [st.kind==="interact"?"原文长度":"正文长度", num(text.length)+" 字符"],
+      ["附件 / 内容块", esc([...counts].map(([k,v])=>k+" "+v).join(" · "))]
+    ]));
+    if(blocks.context.length) html += sec("内容来源", `<div class="hint">已分离 ${blocks.context.length} 块附加上下文，可在“上下文”页查看。</div>`);
+    const body = st.kind==="interact" && st.act && st.act.items.length
+      ? st.act.items.map(x=>`<div class="qa"><div class="q">${esc(x.q)}</div><div class="a">${esc(x.a)}</div></div>`).join("")
+      : `<div class="message-body">${esc(text)||"<span class='hint'>未记录文本正文</span>"}</div>`;
+    html += sec(request?"用户请求":"消息正文", body);
+    if(request) html += `<details class="sec"><summary>附件清单及附加说明</summary><div class="message-body">${esc(fullText)}</div></details>`;
+    html += `<details class="sec"><summary>记录标识</summary>${kv([
+      ["记录时间", esc(stampOf(st.ts))], ["消息阶段", esc(p.phase||"")], ["通道", esc(p.channel||"")],
+      ["消息 id", esc(st.id||"")], ["turn id", esc(meta.turn_id||t.id||"")],
+      ["记录序号", st.ord==null? "": num(st.ord)], ["来源", esc((st.raw&&st.raw.type||"")+" / "+(p.type||""))]
+    ])}</details>`;
+  }
+  box.innerHTML = `<div class="message-details">${html}</div>`;
+}
+
+/* ================= 工具调用详情（概述 / 参数 / 结果 / Schema / 计时） ================= */
+
+/* 只解析完整 JSON；exec/apply_patch 等自由文本保留原文，不执行或猜测代码。 */
+function parseToolArgs(st){
+  const source = st.raw && st.raw.type==="response_item" && st.raw.payload;
+  const value = source && source.type==="custom_tool_call" ? source.input
+    : source && source.type==="function_call" ? source.arguments : st.args;
+  const raw = typeof value === "string" ? value : (value==null ? "" : JSON.stringify(value, null, 2));
+  const res = {params:null, raw};
+  if(value && typeof value === "object"){ res.params = value; return res; }
+  try{
+    const parsed = JSON.parse(raw);
+    if(parsed && typeof parsed === "object") res.params = parsed;
+  }catch(e){ /* 自由文本不是 JSON，参数页直接显示原文。 */ }
+  return res;
+}
+/* 本次会话 session_meta.dynamic_tools 里的 Schema */
+function sessionToolSchema(st){
+  const groups = (S.parsed && S.parsed.dynTools) || [], matches = [];
+  for(const g of groups){
+    if(!g || typeof g !== "object") continue;
+    const grouped = Array.isArray(g.tools);
+    const group = grouped ? (g.name || g.namespace || "") : (g.namespace || "");
+    if(st.ns && group !== st.ns) continue;
+    for(const tool of (grouped ? g.tools : [g])){
+      if(!tool || !tool.name) continue;
+      if(st.tool === tool.name || st.tool === group+"."+tool.name)
+        matches.push({tool, group, source:"本会话 session_meta.dynamic_tools"});
+    }
+  }
+  return matches.length === 1 ? matches[0] : null;
+}
+function paramsSection(p){
+  if(!p.params){
+    if(!p.raw) return `<div class="hint">该调用没有参数记录</div>`;
+    return `<div class="sec"><h4>原始输入</h4><pre class="json">${esc(p.raw)}</pre></div>`;
+  }
+  const ent = Object.entries(p.params);
+  const body = ent.map(([k,v]) => {
+    const val = (typeof v === "string") ? v : JSON.stringify(v, null, 2);
+    return `<div class="pname">${esc(k)}</div><pre class="json">${esc(val)}</pre>`;
+  }).join("");
+  return `<div class="sec"><h4>参数（${ent.length} 项）</h4>${body}</div>`
+       + `<div class="sec"><h4>原始输入</h4><pre class="json">${esc(p.raw)}</pre></div>`;
+}
+function resultSection(st){
+  const it = st.result && st.result.item, v = toolView(st);
+  const badge = `<span class="chip ${v.status==="failed"?"r":""}">${esc(v.status)}</span>`;
+  const pre = (value) => `<pre class="json">${esc(typeof value==="string" ? value : JSON.stringify(value, null, 2))}</pre>`;
+  let html = `<div class="sec"><h4>结果 ${badge}</h4>`, shown = false;
+  for(const key of ["stdout", "stderr"]){
+    if(it && typeof it[key]==="string" && it[key]!==""){
+      html += `<div class="pname">${key}</div>` + pre(it[key]); shown = true;
+    }
+  }
+  if(!shown && it && typeof it.aggregated_output==="string" && it.aggregated_output!==""){
+    html += pre(it.aggregated_output); shown = true;
+  }
+  if(it && it.result!=null){ html += `<div class="pname">工具结果</div>` + pre(it.result); shown = true; }
+  if(it && it.error!=null){ html += `<div class="pname">错误</div>` + pre(it.error); shown = true; }
+  if(st.out){ html += `<div class="pname">返回内容</div>` + pre(st.out); shown = true; }
+  if(!shown){
+    const returned = (st.outputRecords && st.outputRecords.length) || (it && ("stdout" in it || "aggregated_output" in it));
+    html += `<div class="hint">${returned ? "空输出（已记录返回）" : "缺少输出记录，当前执行状态以已记录字段为准"}</div>`;
+  }
+  html += `</div>`;
+  if(it && it.formatted_output && it.formatted_output!==it.aggregated_output)
+    html += `<div class="sec"><h4>格式化输出</h4>${pre(it.formatted_output)}</div>`;
+  for(const rec of (st.outputRecords || []))
+    html += `<details class="sec"><summary>返回记录原文 · ${esc(stampOf(rec.timestamp))}</summary>${pre(rec)}</details>`;
+  return html;
+}
+function schemaFallback(st, args, error=""){
+  const keys = args.params ? Object.keys(args.params) : [];
+  let html = `<div class="sec"><h4>未找到该工具的 Schema</h4>
+    <div class="hint">当前记录和可读取的缓存未提供可唯一匹配的工具定义。缺失定义不代表工具没有 Schema；本次实参不能还原完整参数约束。${error?`<br>查询信息：${esc(error)}`:""}</div></div>`;
+  if(keys.length){
+    html += `<div class="sec"><h4>本次实参字段（不是 Schema）</h4>${kv(keys.map(k=>{
+      const v = args.params[k];
+      const t = Array.isArray(v)? "array["+v.length+"]" : (v===null? "null" : typeof v);
+      const sample = (typeof v === "string") ? v.slice(0,60) : JSON.stringify(v);
+      return [k, `<span class="chip">${esc(t)}</span> <span style="font-family:var(--mono);font-size:11px">${esc(sample==null?"":String(sample).slice(0,60))}</span>`];
+    }))}</div>`;
+  }
+  return html;
+}
+function renderToolInsp(box, st, t, scrollPosition=null){
+  const v = toolView(st), args = parseToolArgs(st);
+  const it = st.result && st.result.item;
+  if(S.tab === "t_args"){
+    box.innerHTML = st.origin==="event" && !args.raw
+      ? `<div class="hint">此项来自执行事件，没有关联的模型入参记录。</div>${jsonBlock(it)}`
+      : paramsSection(args);
+    return;
+  }
+  if(S.tab === "t_result"){ box.innerHTML = resultSection(st); return; }
+  if(S.tab === "t_time"){
+    const s0 = st.result && st.result.startedAt, c0 = st.result && st.result.completedAt;
+    const output = (st.outputRecords || []).at(-1);
+    const gap = output && st.origin!=="event" ? new Date(output.timestamp)-new Date(st.ts) : null;
+    const preciseStamp = (x) => Number.isFinite(x) ? new Date(x).toLocaleString("zh-CN", {hour12:false})+"."+String(new Date(x).getMilliseconds()).padStart(3,"0") : "";
+    box.innerHTML = kv([
+      ["执行开始", preciseStamp(s0)],
+      ["执行结束", preciseStamp(c0)],
+      ["事件时间差", v.eventMs!=null? dur(v.eventMs) : "未记录"],
+      ["执行记录耗时", v.secs!=null? secTxt(v.secs) : "未记录"],
+      [st.origin==="event" ? "执行事件记录" : "调用记录", esc(st.ts||"")],
+      ["返回记录", esc(output && output.timestamp || "")],
+      ["调用到返回记录间隔", gap!=null && Number.isFinite(gap) && gap>=0? dur(gap) : "未记录有效间隔"],
+      ["状态", esc(v.status||"")],
+      ["退出码", v.exitCode==null? "" : String(v.exitCode)],
+      ["进程 id", esc(it && it.process_id || "")],
+      ["调用 id", esc(st.callId||"")],
+      ["记录序号", st.ord==null? "": num(st.ord)]
+    ]) + `<div class="hint">执行记录耗时来自 duration；事件时间差与调用到返回记录间隔包含记录及等待时间，不等同于执行耗时。并行耗时相加不等于经过时间。</div><div class="sec"><h4>所在轮次</h4>${kv([
+      ["模型", esc(contextOfTurn(t)?.model||"")],
+      ["执行耗时", elapsed(t.toolMs)],
+      ["对话耗时", elapsed(t.spanMs)],
+      ["首 token 延迟", dur(t.ttftMs)]
+    ])}</div>`;
+    return;
+  }
+  if(S.tab === "t_schema"){
+    const local = sessionToolSchema(st);
+    if(local) return renderSchemaView(box, local.tool, local.source, local.group);
+    /* 本地没有就异步问服务端（codex_apps 缓存），并防止请求期间又切换了选择 */
+    S.schemaSeq = (S.schemaSeq||0)+1;
+    const seq = S.schemaSeq, parsed = S.parsed;
+    const current = () => seq===S.schemaSeq && S.parsed===parsed && S.tab==="t_schema" && selectedStep()===st;
+    const restoreScroll = () => {
+      if(!current()) return;
+      if(scrollPosition){ box.scrollTop=scrollPosition.top; box.scrollLeft=scrollPosition.left; }
+      if(S.schemaRestore && S.schemaRestore.seq===seq) S.schemaRestore=null;
+    };
+    const name = st.tool || "", ns = st.ns || "";
+    if(S.mode!=="server"){ box.innerHTML = schemaFallback(st, args, "本地文件模式未连接缓存查询服务"); return; }
+    S.schemaRestore = scrollPosition? {seq,parsed,st,position:scrollPosition} : null;
+    box.innerHTML = `<div class="hint">正在查询工具 Schema…（本会话 dynamic_tools 未收录 ${esc(name)}）</div>`;
+    fetch(`/api/toolschema?name=${encodeURIComponent(name)}&ns=${encodeURIComponent(ns)}`).then(r=>{
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      return r.json();
+    }).then(j=>{
+      if(!current()) return;
+      if(j && j.found) renderSchemaView(box, j, "当前本地缓存（不是历史快照）", j.tool_namespace);
+      else box.innerHTML = schemaFallback(st, args, j && j.error || "未找到唯一匹配的定义");
+      restoreScroll();
+    }).catch(e=>{
+      if(current()){ box.innerHTML=schemaFallback(st,args,e.message); restoreScroll(); }
+    });
+    return;
+  }
+  /* t_overview */
+  const argsBrief = args.params ? JSON.stringify(args.params) : (args.raw || "");
+  const outBrief = st.out || (it && it.aggregated_output) || (it && it.result ? JSON.stringify(it.result) : "");
+  box.innerHTML = kv([
+    ["工具", esc(st.tool||"")],
+    ["记录来源", st.origin==="event" ? "执行事件（未关联模型调用）" : "模型工具调用"],
+    ["命名空间", esc(st.ns||"")],
+    ["类型", esc(v.kind||"")],
+    ["状态", esc(v.status||"")],
+    ["退出码", v.exitCode==null? "" : String(v.exitCode)],
+    ["耗时", v.secs!=null? secTxt(v.secs) : ""],
+    ["调用 id", esc(st.callId||"")],
+    ["执行项 id", esc(it && it.id || "")],
+    ["MCP 服务", esc(st.server||"")]
+  ])
+  + (v.cmd? `<div class="sec"><h4>命令</h4><pre class="json">${esc(v.cmd)}</pre></div>`:"")
+  + (v.workdir? `<div class="sec"><h4>工作目录</h4><div class="hint" style="font-family:var(--mono)">${esc(v.workdir)}</div></div>`:"")
+  + `<div class="sec"><h4>参数摘要</h4><pre class="json">${esc(argsBrief.slice(0,300))}${argsBrief.length>300?"…":""}</pre></div>`
+  + (outBrief? `<div class="sec"><h4>结果摘要</h4><pre class="json">${esc(String(outBrief).slice(0,300))}${String(outBrief).length>300?"…":""}</pre></div>`:"")
+  + `<div class="sec"><h4>所在轮次</h4>${kv([["模型", esc(contextOfTurn(t)?.model||"")],["执行耗时", elapsed(t.toolMs)],["对话耗时", elapsed(t.spanMs)]])}</div>`
+  + `<details class="sec"><summary>原始记录</summary>${jsonBlock(st.raw)}${st.result && st.result.raw!==st.raw ? jsonBlock(st.result.raw) : ""}</details>`;
+}
+function renderSchemaView(box, tool, source, group){
+  const sch = tool.inputSchema || tool.input_schema;
+  box.innerHTML = kv([
+    ["来源", esc(source||"")],
+    ["分组", esc(group||"")],
+    ["名称", esc(tool.name||"")],
+    ["标题", esc(tool.title||"")],
+    ["查询信息", esc((tool.cache_warnings||[]).join("; "))],
+    ["缓存文件", esc(tool.cache_file||"")],
+    ["缓存更新时间", esc(tool.cache_updated_at||"")]
+  ])
+  + (tool.description? `<div class="sec"><h4>说明</h4><div class="tx" style="font-size:12px">${esc(tool.description)}</div></div>`:"")
+  + (sch? `<div class="sec"><h4>inputSchema</h4><pre class="json">${esc(JSON.stringify(sch, null, 2))}</pre></div>`
+        : `<div class="hint">缓存里没有 inputSchema</div>`)
+  + (tool.outputSchema? `<div class="sec"><h4>outputSchema</h4><pre class="json">${esc(JSON.stringify(tool.outputSchema, null, 2))}</pre></div>`:"");
+}
+
+function renderInsp(scrollPosition=null){
+  S.schemaRestore=null;
+  S.schemaSeq = (S.schemaSeq||0)+1;
+  const box = $("#insp"), P = S.parsed;
+  if(!P){ box.innerHTML = '<div class="empty">左侧选择一个会话</div>'; return; }
+  const st = S.sel ? (P.turns[S.sel.ti] && P.turns[S.sel.ti].steps[S.sel.idx]) : null;
+  const t = st ? P.turns[S.sel.ti] : (S.selTurn!=null ? P.turns[S.selTurn] : null);
+  if(!st && !t){ box.innerHTML = '<div class="empty">点击中间任意步骤查看详情</div>'; return; }
+  if(S.lazyDetails && S.lazyDetails.loadedIndex!==(S.sel? S.sel.ti : S.selTurn) && (st || S.tab==="raw")){
+    box.innerHTML = '<div class="empty">本轮详情尚未载入。展开轮次后查看完整原始记录。</div>'; return;
+  }
+  if(st && S.tab.startsWith("m_")){ renderMessageInsp(box, st, t); return; }
+  const m = turnMetrics(t);
+
+  /* 工具调用步骤 → 概述 / 参数 / 结果 / Schema / 计时 */
+  if(st && (st.kind === "tool" || st.kind === "mcp") && S.tab.startsWith("t_")){ renderToolInsp(box, st, t, scrollPosition); return; }
+
+  if(S.tab === "raw"){
+    box.innerHTML = jsonBlock(st ? st.raw : {turn_context:m.context, note:"当前展示段最后关联的 turn_context 原文"});
+    return;
+  }
+  if(S.tab === "model"){
+    if(t.ghost){ box.innerHTML = '<div class="warn">该轮未记录 turn_context，无法确认历史模型与执行环境。</div>'; return; }
+    const c = m.context || {}, sandbox = c.sandbox_policy || {};
+    const collab = (c.collaboration_mode&&c.collaboration_mode.mode)||t.collab||"";
+    box.innerHTML = `<div class="sec"><h4>第 ${(S.sel?S.sel.ti:S.selTurn)+1} 轮 · 模型</h4>${kv([
+      ["模型", esc(c.model||"未记录")], ["推理强度", esc(c.effort||"")],
+      ["协作模式", collab==="default"? "" : esc(collab)],
+      ["上下文窗口", t.ctxWindow==null? "" : num(t.ctxWindow)+" tokens"]
+    ])}<div class="hint">来源：本段最后关联的 turn_context；上下文窗口来自本轮运行记录。</div></div>
+    <div class="sec"><h4>执行环境</h4>${kv([
+      ["工作目录", esc(c.cwd||"未记录")], ["沙箱", esc(sandbox.type||"未记录")],
+      ["网络访问", typeof sandbox.network_access==="boolean"? (sandbox.network_access?"开启":"关闭") : "未记录"],
+      ["审批策略", esc(c.approval_policy||"未记录")]
+    ])}</div><details class="sec"><summary>更多配置</summary>${kv([
+      ["推理摘要", esc(c.summary||"")], ["人格", esc(c.personality||"")],
+      ["审批审核", esc(c.approvals_reviewer||"")], ["权限档", esc(c.active_permission_profile&&c.active_permission_profile.id||"")],
+      ["工作根目录", Array.isArray(c.workspace_roots)? c.workspace_roots.filter(x=>typeof x==="string").map(esc).join("<br>") : ""],
+      ["时区", esc(c.timezone||"")], ["环境日期", esc(c.current_date||"")],
+      ["多代理版本", esc(c.multi_agent_version||"")]
+    ])}</details><details class="sec"><summary>本轮上下文原始记录</summary>${jsonBlock(c)}</details>`;
+    return;
+  }
+  if(S.tab === "request"){
+    box.innerHTML = renderUsage(t);
+    return;
+  }
+  if(S.tab === "perf"){
+    const source = t.sourceTurn || t;
+    box.innerHTML = (t.parts? `<div class="warn">该轮与相邻轮同属一个 turn（${esc(String(t.id).slice(0,8))}… 第 ${t.part}/${t.parts} 段）；两项累计时间属于当前展示段，任务记录耗时与 TTFT 属于原 turn。</div>`:"") + kv([
+      ["轮次", "第 "+(S.sel? S.sel.ti+1 : (S.selTurn!=null? S.selTurn+1 : "?"))+" 轮"],
+      ["执行耗时", elapsed(m.toolMs)],
+      ["对话耗时", elapsed(t.spanMs)],
+      ["首条记录", t.firstTs==null? "—" : stampOf(new Date(t.firstTs).toISOString())],
+      ["末条记录", t.lastTs==null? "—" : stampOf(new Date(t.lastTs).toISOString())],
+      ["工具调用", m.tools+" 次"]
+    ]) + `<div class="sec"><div class="hint">对话耗时取步骤及关联返回记录的首尾时间差；执行项耗时仅累计已有 duration。</div></div>
+    <details class="sec"><summary>原始任务计时</summary>${kv([
+      ["任务记录耗时（turn 级）", source.durationMs==null? "未记录" : dur(source.durationMs)],
+      ["首 token 延迟", source.ttftMs==null? "未记录" : dur(source.ttftMs)]
+    ])}<div class="hint">来自原始 turn 的 task_complete，不参与展示段累计；缺少纯模型生成耗时，无法计算生成速率。</div></details>` + (st && st.kind==="tool" ? (()=>{ const v=toolView(st); return `<div class="sec"><h4>本步骤工具</h4>${kv([
+        ["工具", esc(st.tool||"")],
+        ["命名空间", esc(st.ns||"")],
+        ["类型", esc(v.kind||"")],
+        ["耗时", v.secs!=null? secTxt(v.secs) : ""],
+        ["退出码", v.exitCode==null? "" : String(v.exitCode)],
+        ["状态", esc(v.status||"")],
+        ["工作目录", esc(v.workdir||"")]
+      ])}</div>`; })() : "");
+    return;
+  }
+  /* overview */
+  if(st){
+    const extra = [];
+    if(st.kind==="msg") extra.push(["角色", esc(st.role)], ["内容长度", num((st.text||"").length)+" 字符"]);
+    if(st.kind==="reasoning") extra.push(["摘要长度", num((st.summary||"").length)+" 字符"], ["加密载荷", num(st.enc)+" 字符"]);
+    if(st.kind==="tool"){ const v=toolView(st); extra.push(["工具", esc(st.tool||"")],["耗时", v.secs!=null? v.secs.toFixed(2)+" s":""],["退出码", v.exitCode==null?"":String(v.exitCode)]); }
+    box.innerHTML = kv([
+      ["类型", esc(st.kind)],
+      ["序号 ordinal", st.ord==null? "": num(st.ord)],
+      ["时间", esc(stampOf(st.ts))],
+      ["call id", esc(st.callId||"")],
+      ["id", esc(st.id||"")]
+    ].concat(extra))
+    + `<div class="sec"><h4>所在轮次</h4>${kv([
+        ["模型", esc(m.context&&m.context.model||"")],
+        ["推理强度", esc(m.context&&m.context.effort||"")],
+        ["执行耗时", elapsed(t.toolMs)],
+        ["对话耗时", elapsed(t.spanMs)],
+        ["TTFT", dur(t.ttftMs)]
+      ])}</div>`
+    + (st.kind==="agent" && st.text ? `<div class="sec"><h4>消息内容</h4><div class="tx" style="font-size:12px">${esc(st.text.slice(0,4000))}</div></div>`:"");
+    return;
+  }
+  const commands = t.steps.filter(s=>s.result && s.result.item.type==="CommandExecution").length;
+  box.innerHTML = `<div class="sec"><h4>轮次概览 · 第 ${S.selTurn+1} 轮</h4>${kv([
+    ["模型", esc(m.context&&m.context.model||"未记录")], ["推理强度", esc(m.context&&m.context.effort||"")],
+    ["执行耗时", elapsed(t.toolMs)], ["对话耗时", elapsed(t.spanMs)],
+    ["工具调用", m.tools+" 次"], ["命令执行记录", commands+" 条"], ["步骤记录", t.steps.length+" 条（含隐藏项）"]
+  ])}</div><div class="sec"><h4>记录范围</h4>${kv([
+    ["首条记录", t.firstTs==null? "—" : stampOf(new Date(t.firstTs).toISOString())],
+    ["末条记录", t.lastTs==null? "—" : stampOf(new Date(t.lastTs).toISOString())]
+  ])}<div class="hint">本轮指当前展示段；顶部两项时间分别为各段同口径值之和。</div></div>
+  <details class="sec"><summary>记录标识与会话上下文</summary>${kv([
+    ["turn id", esc(t.id||"")], ["拆段", t.parts? `${t.part} / ${t.parts}` : ""],
+    ["会话 id", esc(P.meta&&P.meta.id||S.current.session_id||"")], ["文件", esc(S.current.name)]
+  ])}<button id="btn-sys">查看系统提示词 / 上下文构成</button>
+  <div class="hint">会话上下文用于检查全局指令；本轮模型与权限以“模型与环境”为准。</div></details>`;
+  const b = $("#btn-sys"); if(b) b.onclick = showContextModal;
+}
+
+function openTurn(ti){
+  if(S.lazyDetails) return S.lazyDetails.load(ti);
+  S.expanded.add(ti); renderStream(); setSelTurn(ti);
+}
+function selectStep(ti, idx){
+  if(S.lazyDetails && S.lazyDetails.loadedIndex!==ti) return S.lazyDetails.load(ti).then(ok=>{ if(ok) selectStep(ti,idx); });
+  S.sel = {ti, idx}; S.selTurn = ti;
+  renderTabs();          // 工具步骤会切成「概述/参数/结果/Schema/计时」
+  renderInsp();
+  document.querySelectorAll("#stream .step").forEach(el =>
+    el.classList.toggle("sel", +el.dataset.turn===ti && +el.dataset.step===idx));
+}
+function setSelTurn(ti){
+  S.selTurn = ti; S.sel = null;
+  document.querySelectorAll("#stream .step.sel").forEach(el=>el.classList.remove("sel"));
+  renderTabs(); renderInsp();
+}
+
+/* ---------------- 系统提示词 / 上下文构成 ---------------- */
+function showContextModal(){
+  const P = S.parsed; if(!P) return;
+  const m = P.meta || {}, w = (P.world && P.world.state) || {};
+  const bi = (m.base_instructions && m.base_instructions.text) || "";
+  const parts = [];
+  parts.push(`<div class="sec"><h4>系统提示词 base_instructions（${num(bi.length)} 字符）</h4>
+    <div class="tx" style="max-height:360px;overflow:auto;white-space:pre-wrap;font-size:12px">${esc(bi)||"<span class='hint'>无</span>"}</div></div>`);
+  parts.push(`<div class="sec"><h4>上下文构成 world_state</h4>${jsonBlock(w)}</div>`);
+  const keys = ["agents_md","skills","host_skills","plugins_instructions","managed_developer_instructions","permissions","environments","model","collaboration_mode"];
+  parts.push(`<div class="sec"><h4>关键片段长度</h4>${kv(keys.map(k=>[k, w[k]==null?"": num(JSON.stringify(w[k]).length)+" 字符"]))}</div>`);
+  $("#mtitle").textContent = "上下文构成 · " + (S.current? S.current.name : "");
+  $("#mbody").innerHTML = parts.join("");
+  $("#modal").classList.add("on");
+}
+
+/* ---------------- 载入会话 ---------------- */
+function stepAnchor(s){
+  return {kind:s.kind, id:s.callId||s.id,
+    fallback:JSON.stringify([s.kind,s.ts,s.ord,s.role,s.ns,s.tool,s.src,s.args??s.text??s.summary??s.label??""])};
+}
+function turnAnchor(t){
+  const first = t.steps.find(isHumanInput) || t.steps[0];
+  return JSON.stringify([t.id, first? stepAnchor(first).fallback : t.ts]);
+}
+function refreshedLocation(old, ti, idx, locations){
+  const t = old.turns[ti], s = t && t.steps[idx];
+  if(!s) return null;
+  const anchor = stepAnchor(s);
+  return (anchor.id && locations.get(JSON.stringify([t.id,anchor.kind,anchor.id])))
+    || locations.get(JSON.stringify([t.id,anchor.fallback])) || null;
+}
+function captureSessionView(){
+  const positions = ["#stream","#insp"].map(selector=>({selector,top:$(selector).scrollTop,left:$(selector).scrollLeft}));
+  const pending = S.schemaRestore;
+  if(pending && pending.seq===S.schemaSeq && pending.parsed===S.parsed && pending.st===selectedStep() && S.tab==="t_schema")
+    Object.assign(positions[1], {top:pending.position.top,left:pending.position.left});
+  const details = Array.from(document.querySelectorAll("#insp details")).map(el=>({title:el.querySelector("summary").textContent,open:el.open}));
+  const outputs = Array.from(document.querySelectorAll("#stream .tx,#stream pre")).map(el=>{
+    const step = el.closest(".step");
+    return {ti:+step.dataset.turn,idx:+step.dataset.step,offset:Array.from(step.querySelectorAll(".tx,pre")).indexOf(el),top:el.scrollTop,left:el.scrollLeft};
+  });
+  return {parsed:S.parsed,sel:S.sel,selTurn:S.selTurn,tab:S.tab,expanded:S.expanded,truncMap:S.truncMap,positions,details,outputs};
+}
+function restoreSessionView(view, P, locations){
+  const rounds = new Map(P.turns.map((t,i)=>[turnAnchor(t),i]));
+  const round = i => {
+    const t = view.parsed.turns[i];
+    return t? rounds.get(turnAnchor(t)) ?? -1 : -1;
+  };
+  S.expanded = new Set([...view.expanded].map(round).filter(i=>i>=0));
+  S.sel = view.sel? refreshedLocation(view.parsed,view.sel.ti,view.sel.idx,locations) : null;
+  const ti = round(view.selTurn);
+  S.selTurn = S.sel? S.sel.ti : ti>=0? ti : null;
+  S.tab = view.tab; S.truncMap = new Map();
+  for(const [key,value] of view.truncMap){
+    const [ti,idx] = key.split(":").map(Number), next = refreshedLocation(view.parsed,ti,idx,locations);
+    if(next) S.truncMap.set(next.ti+":"+next.idx,value);
+  }
+}
+function restoreSessionScroll(view, locations){
+  document.querySelectorAll("#insp details").forEach(el=>{
+    const saved = view.details.find(x=>x.title===el.querySelector("summary").textContent);
+    if(saved) el.open=saved.open;
+  });
+  view.outputs.forEach(saved=>{
+    const next = refreshedLocation(view.parsed,saved.ti,saved.idx,locations);
+    const step = next && document.querySelector(`#stream .step[data-turn="${next.ti}"][data-step="${next.idx}"]`);
+    const el = step && step.querySelectorAll(".tx,pre")[saved.offset];
+    if(el){ el.scrollTop=saved.top; el.scrollLeft=saved.left; }
+  });
+  view.positions.forEach(p=>{ $(p.selector).scrollTop=p.top; $(p.selector).scrollLeft=p.left; });
+}
+function applySessionSnapshot(s, P, preserve=false, prepareView=null){
+  const view = preserve? captureSessionView() : null, locations = new Map();
+  if(view) P.turns.forEach((t,ti)=>t.steps.forEach((st,idx)=>{
+    const anchor = stepAnchor(st), keys = [JSON.stringify([t.id,anchor.fallback])];
+    if(anchor.id) keys.push(JSON.stringify([t.id,anchor.kind,anchor.id]));
+    keys.forEach(key=>locations.set(key, locations.has(key)? null : {ti,idx}));
+  }));
+  S.current=s; S.parsed=P;
+  /* 本地文件的元信息回填与服务端刷新使用同一条展示链。 */
+  if(P.meta){
+    s.model_provider = s.model_provider || P.meta.model_provider || "";
+    s.cwd = s.cwd || P.meta.cwd || "";
+    s.cli_version = s.cli_version || P.meta.cli_version || "";
+    if(!s.git && P.meta.git) s.git = {branch:P.meta.git.branch||"", commit:String(P.meta.git.commit_hash||"").slice(0,8)};
+    s.thread_id = s.thread_id || P.meta.id || "";
+    s.parent_thread_id = s.parent_thread_id || P.meta.parent_thread_id || "";
+    s.thread_source = s.thread_source || P.meta.thread_source || "";
+    if(!s.context_kind && P.meta.source && typeof P.meta.source === "object" && P.meta.source.subagent) s.context_kind = "subagent";
+    if(!S.scope) s.treeDirty = true;
+    if(!S.scope && !s.preview){
+      for(const t of P.turns){
+        const hit = t.steps.find(x => x.kind==="msg" && x.role==="user" && x.text && x.text.trim() && !x.text.trim().startsWith("<"));
+        if(hit){ s.preview = hit.text.replace(/\s+/g," ").trim().slice(0,180); break; }
+      }
+    }
+  }
+  if(view) restoreSessionView(view,P,locations);
+  else {
+    S.sel=null; S.selTurn=P.turns.length? P.turns.length-1 : null; S.truncMap.clear();
+    S.expanded=new Set(P.turns.length? [P.turns.length-1] : []);
+  }
+  if(prepareView) prepareView();
+  pushStats(s, {turns:P.totals.turns, tools:P.totals.tools, tokens:P.totals.tokens, ttft:P.totals.ttft, durMs:P.totals.durMs});
+  if(!S.scope && s.treeDirty){ s.treeDirty=false; setSessions(S.sessions); }
+  if(!S.scope) renderList();
+  renderSessionBar(); renderTimeline(); renderFilterBar(); renderStream(!!view); renderTabs();
+  renderInsp(view? view.positions.find(p=>p.selector==="#insp") : null);
+  if(view) restoreSessionScroll(view,locations);
+}
+async function openSession(i){
+  if(S.scope) return;
+  if(!S.rows.length) buildRows();          // 兜底：调用方可能还没渲染列表
+  const row = S.rows[i];
+  if(row && row.type && row.type !== "sess") return;
+  const s = (row && row.s) || S.filtered[i] || S.sessions[i];
+  if(!s) return;
+  S.current = s; S.sel = null; S.selTurn = null; S.truncMap.clear();
+  $("#stream").innerHTML = '<div class="empty">解析中…</div>';
+  renderList();
+  const token = ++S.loadToken;
+  if(S.pollAbort) S.pollAbort.abort();
+  const controller = new AbortController(); S.pollAbort = controller;
+  try{
+    const P = await loadParsed(s,token,controller.signal);
+    if(token!==S.loadToken) return;
+    applySessionSnapshot(s,P);
+  }catch(e){
+    if(token!==S.loadToken) return;
+    $("#stream").innerHTML = '<div class="empty">读取失败：'+esc(e.message)+'</div>';
+  } finally { if(S.pollAbort===controller) S.pollAbort=null; }
+}
+
+/* ---------------- 启动 ---------------- */
+/* 左右分栏拖拽调宽 */
+function bindGutters(){
+  const root = document.documentElement;
+  document.querySelectorAll(".gutter").forEach(g => {
+    g.onmousedown = e => {
+      e.preventDefault();
+      const side = g.dataset.side;
+      g.classList.add("act");
+      document.body.classList.add("dragging");
+      const move = ev => {
+        if(side === "right"){
+          const max = Math.max(320, window.innerWidth - 460);
+          const w = Math.min(Math.max(window.innerWidth - ev.clientX, 240), max);
+          root.style.setProperty("--rw", w + "px");
+        } else {
+          const w = Math.min(Math.max(ev.clientX, 170), 640);
+          root.style.setProperty("--lw", w + "px");
+        }
+      };
+      const up = () => {
+        document.removeEventListener("mousemove", move);
+        document.removeEventListener("mouseup", up);
+        g.classList.remove("act");
+        document.body.classList.remove("dragging");
+        try{
+          localStorage.setItem("ctv.lw", root.style.getPropertyValue("--lw") || "");
+          localStorage.setItem("ctv.rw", root.style.getPropertyValue("--rw") || "");
+        }catch(err){}
+      };
+      document.addEventListener("mousemove", move);
+      document.addEventListener("mouseup", up);
+    };
+  });
+  try{
+    const lw = localStorage.getItem("ctv.lw"), rw = localStorage.getItem("ctv.rw");
+    if(lw) root.style.setProperty("--lw", lw);
+    if(rw) root.style.setProperty("--rw", rw);
+  }catch(e){}
+}
+
+function bind(){
+  $("#q").oninput = () => { if(!S.scope) renderList(); };
+  $("#slist").onclick = e => {
+    if(S.scope) return;
+    /* 会话行已不支持展开子线程（见 sessRow 注释），故这里不再处理 data-toggle */
+    const mo = e.target.closest("[data-more]");
+    if(mo){ if(mo.dataset.more==="recentAll"){ S.recentAll = true; renderList(); } return; }
+    const sec = e.target.closest("[data-sec]");
+    if(sec){ toggleCollapsed(sec.dataset.sec); return; }
+    const pr = e.target.closest("[data-proj]");
+    if(pr){ toggleCollapsed(pr.dataset.proj); return; }
+    const d = e.target.closest(".sess");
+    if(d) openSession(+d.dataset.i);
+  };
+  $("#reload").onclick = async () => { if(S.scope) await refreshScoped(); else await boot(); };
+  $("#theme").onclick = () => {
+    const dark = document.documentElement.dataset.theme === "dark";
+    document.documentElement.dataset.theme = dark ? "light" : "dark";
+    $("#theme").textContent = dark ? "深色" : "浅色";
+  };
+  $("#detail").onchange = e => { S.detail = e.target.checked; renderStream(); };
+  $("#pick").onclick = () => { if(!S.scope) $("#dirpick").click(); };
+  $("#dirpick").onchange = e => {
+    if(S.scope) return;
+    const files = Array.from(e.target.files||[]).filter(f=>f.name.endsWith(".jsonl"));
+    if(!files.length) return;
+    S.mode = "local";
+    setSessions(files.map(f=>{
+      const m = /^rollout-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})-(.+)\.jsonl$/.exec(f.name);
+      const rel = f.webkitRelativePath || f.name;
+      return {path: rel, name: f.name, _file: f, size: f.size, mtime: f.lastModified/1000,
+              date: m?m[1]:"", clock: m? (m[2]+":"+m[3]+":"+m[4]) : "", session_id: m?m[5]:"",
+              thread_id:"", parent_thread_id:"", thread_source:"", context_kind:"", agent:"",
+              cwd:"", model_provider:"", originator:"", cli_version:"", preview:"", archived:false};
+    }).sort((a,b)=>b.mtime-a.mtime));
+    S.current=null; S.parsed=null;
+    $("#mode").textContent = "本地模式 · "+S.sessions.length+" 个文件";
+    $("#mode").className = "chip p";
+    $("#count").textContent = "";
+    renderList(); renderSessionBar(); $("#stream").innerHTML='<div class="empty">左侧选择一个会话</div>';
+    $("#insp").innerHTML = '<div class="empty">点击中间任意步骤查看详情</div>';
+  };
+  $("#mclose").onclick = () => $("#modal").classList.remove("on");
+  $("#modal").onclick = e => { if(e.target.id==="modal") $("#modal").classList.remove("on"); };
+  document.addEventListener("dragover", e => { e.preventDefault(); if(!S.scope) $("#drop").classList.add("on"); });
+  document.addEventListener("dragleave", e => { if(e.clientX<=0||e.clientY<=0) $("#drop").classList.remove("on"); });
+  document.addEventListener("drop", e => {
+    e.preventDefault(); $("#drop").classList.remove("on");
+    if(S.scope) return;
+    const files = Array.from(e.dataTransfer.files||[]).filter(f=>f.name.endsWith(".jsonl"));
+    if(!files.length) return;
+    S.mode = "local";
+    setSessions(files.map(f=>{
+      const m = /^rollout-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})-(.+)\.jsonl$/.exec(f.name);
+      return {path:f.name, name:f.name, _file:f, size:f.size, mtime:f.lastModified/1000,
+              date:m?m[1]:"", clock:m?(m[2]+":"+m[3]+":"+m[4]):"", session_id:m?m[5]:"",
+              thread_id:"", parent_thread_id:"", thread_source:"", context_kind:"", agent:"",
+              cwd:"", model_provider:"", originator:"", cli_version:"", preview:"", archived:false};
+    }).sort((a,b)=>b.mtime-a.mtime));
+    $("#mode").textContent = "本地模式 · "+S.sessions.length+" 个文件";
+    renderList();
+  });
+  document.addEventListener("visibilitychange", ()=>{ if(S.scope && !document.hidden) refreshScoped(); });
+  window.addEventListener("pagehide", stopScopedPolling);
+  window.addEventListener("pageshow", ()=>{ if(S.scope){ startScopedPolling(); refreshScoped(); } });
+}
+
+async function boot(){
+  if(S.scope){
+    S.mode="server";
+    document.body.classList.add("scoped");
+    $("#mode").textContent="会话轨迹"; $("#mode").className="chip b";
+    $("#count").textContent=shortId(S.scope); $("#count").title=S.scope;
+    $("#pick").style.display="none"; $("#reload").textContent="重试";
+    scopedStatus("连接会话轨迹服务…");
+    startScopedPolling(); await refreshScoped(); return;
+  }
+  $("#mode").textContent = "检测中…";
+  await detectMode();
+  if(S.mode === "server"){
+    $("#mode").textContent = "服务端模式";
+    $("#mode").className = "chip b";
+    $("#pick").style.display = "none";
+  } else {
+    $("#mode").textContent = "本地模式";
+    $("#mode").className = "chip p";
+  }
+  setSessions(S.sessions);
+  renderList();
+  renderTabs();
+}
+
+bind();
+bindGutters();
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "codex-trace-local",
+  "plugins": [
+    {
+      "name": "codex-trace-probe",
+      "source": {
+        "source": "local",
+        "path": "./plugins/codex-trace-probe"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

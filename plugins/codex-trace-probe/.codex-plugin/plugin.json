@@ -1,0 +1,17 @@
+{
+  "name": "codex-trace-probe",
+  "version": "0.11.0",
+  "description": "在会话内容页签读取本地轨迹，以每请求宿主身份隔离各会话。",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "会话轨迹",
+    "shortDescription": "查看当前会话的消息、工具调用、计时与用量",
+    "longDescription": "macOS 本地只读会话轨迹插件。自动绑定当前会话，先显示全部轮次摘要与最后一轮详情，历史详情按需载入；支持增量更新、暂停并释放、恢复。需要支持会话扩展及 MCP Apps 的 Codex 桌面应用和 Python 3.9+。原生 Tab 隐藏和关闭通知取决于宿主。",
+    "developerName": "Codex Trace Viewer",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Read"
+    ]
+  },
+  "license": "MIT"
+}
